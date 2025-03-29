@@ -1,0 +1,80 @@
+/* Reset default browser styling */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Base styling for the entire page */
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Press Start 2P', 'Courier New', monospace; /* Arcade-style font */
+}
+
+body {
+    background-color: #121212; /* Dark background suitable for arcade theme */
+    color: #ffffff; /* White text for contrast */
+}
+
+/* Game container styling */
+#game-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* Loading screen styling */
+#loading-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    color: #00ff00; /* Classic arcade green */
+    text-align: center;
+}
+
+#loading-screen h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00; /* Glow effect */
+}
+
+/* Apply pixel-style animations for arcade feel */
+@keyframes pixelate {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
+#loading-screen h1 {
+    animation: pixelate 2s infinite;
+}
+
+/* Hide loading screen when game is loaded */
+.loaded #loading-screen {
+    display: none;
+}
+
+/* Style for the fixed crosshair at the center of the screen */
+#crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px; /* Half the width to center */
+    margin-top: -3px;  /* Half the height to center */
+    background-color: white;
+    border-radius: 50%;
+    z-index: 1000;
+    pointer-events: none; /* Allows clicks to pass through */
+}

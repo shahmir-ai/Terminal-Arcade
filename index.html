@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Basic meta tags for character set and responsive design -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Title of the game that appears in the browser tab -->
+    <title>Vibe Arcade</title>
+    
+    <!-- Google Fonts for arcade-style typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <!-- Including Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- IMPORTANT: Add OrbitControls AFTER Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Your custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        /* Landscape orientation styles */
+        #orientation-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            font-family: 'Press Start 2P', monospace;
+            color: #0F0;
+        }
+        
+        #orientation-overlay img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            animation: rotate 1.5s ease-in-out infinite;
+        }
+        
+        #orientation-overlay p {
+            font-size: 16px;
+            text-align: center;
+            padding: 0 20px;
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(-90deg); }
+            100% { transform: rotate(0deg); }
+        }
+    
+       
+    </style>
+
+</head>
+<body>
+    <!-- Container where the Three.js canvas will be inserted -->
+    <div id="game-container"></div>
+    <!-- Orientation overlay -->
+<div id="orientation-overlay">
+    <img src="assets/images/rotate-device.png" alt="Rotate Device">
+    <p>Please rotate your device to landscape mode for the best experience</p>
+</div>
+
+    
+    <!-- Add frogger.js before app.js -->
+    <script src="js/frogger.js"></script>
+
+
+<!-- Then include pong.js -->
+<script src="js/pong.js"></script>
+    
+<script src="js/space_invaders.js"></script>
+
+<script src="js/snake.js"></script>
+
+<script src="js/asteroids.js"></script>
+
+<script src="js/pacman.js"></script>
+
+
+<!-- Mobile controls -->
+<script src="js/mobile-controls.js"></script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.1/dist/nipplejs.min.js"></script>
+    <!-- Your main JavaScript file -->
+
+    <script src="js/app.js"></script>
+
+    <!-- Add this code right before the closing </body> tag -->
+<a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
+</body>
+</html>
