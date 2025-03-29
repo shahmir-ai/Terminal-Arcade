@@ -1,3 +1,4 @@
+/*
 // Simple orientation detection for Vibe Arcade
 (function() {
     // Device detection
@@ -60,3 +61,4 @@
         init();
     }
 })();
+*/
