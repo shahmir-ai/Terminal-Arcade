@@ -1468,6 +1468,8 @@ const rightArrow = createArrowButton('right', '▶', '50px', '100px');
         button.style.userSelect = 'none'; // Prevent text selection
         button.style.cursor = 'pointer';
         controlsContainer.appendChild(button);
+        
+
         return button;
     };
     
@@ -1484,6 +1486,15 @@ jumpButton.style.bottom = '220px'; // 30px above right joystick
 // Create escape button (ESC) - positioned in top-right corner
 const escButton = createButton('esc-button', 'ESC', '20px', '20px', 'rgba(255, 0, 0, 0.3)');
     escButton.style.display = 'none'; // Initially hidden
+
+   
+
+
+// Create duplicate jump button (Space) - positioned above left joystick
+const leftJumpButton = createButton('left-jump-button', 'JUMP', 'auto', 'auto', 'rgba(255, 255, 0, 0.3)');
+leftJumpButton.style.left = '40px'; // Position above left joystick
+leftJumpButton.style.bottom = '160px'; // 30px above left joystick
+controlsContainer.appendChild(leftJumpButton);
     
   // 5. Initialize the left joystick with NippleJS (keep only the left one)
 const leftJoystick = nipplejs.create({
@@ -1651,6 +1662,27 @@ jumpButton.addEventListener('touchend', (e) => {
     this.keyStates['Space'] = false;
 });
     
+
+// Add event listeners for the left jump button
+leftJumpButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    
+    // Only send Space events to the appropriate context
+    if (this.currentMiniGame) {
+        // In mini-game: Send to mini-game
+        this.keyStates['Space'] = true;
+    } else {
+        // Outside mini-game: Trigger jump
+        const spaceKeyEvent = new KeyboardEvent('keydown', { code: 'Space' });
+        this.onKeyDown(spaceKeyEvent);
+    }
+});
+
+leftJumpButton.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['Space'] = false;
+});
+
     // Escape button (Esc key) - for exiting mini-games
     escButton.addEventListener('touchstart', (e) => {
         e.preventDefault(); // Prevent default touch behavior

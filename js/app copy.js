@@ -1280,7 +1280,7 @@ showUsernameModal() {
     input.style.backgroundColor = '#111';
     input.style.border = '2px solid #0F0';
     input.style.color = '#0F0';
-    input.style.fontSize = '16px';
+    input.style.fontSize = '14px';
     input.style.outline = 'none';
     input.style.fontFamily = "'Press Start 2P', monospace";
     input.style.boxSizing = 'border-box'; // Prevent sizing issues
@@ -1547,7 +1547,7 @@ const leftJoystick = nipplejs.create({
         this.keyStates['KeyD'] = false;
     });
     
-    // Set up event handlers for arrow buttons
+   // Set up event handlers for arrow buttons
 const handleArrowTouch = (direction) => {
     // Reset all arrow keys first
     this.keyStates['ArrowUp'] = false;
@@ -1555,83 +1555,101 @@ const handleArrowTouch = (direction) => {
     this.keyStates['ArrowLeft'] = false;
     this.keyStates['ArrowRight'] = false;
     
-    // Set the pressed direction
+    // Set only the pressed direction
     this.keyStates[`Arrow${direction}`] = true;
-};
-
-const handleArrowRelease = () => {
-    // Reset all arrow keys
-    this.keyStates['ArrowUp'] = false;
-    this.keyStates['ArrowDown'] = false;
-    this.keyStates['ArrowLeft'] = false;
-    this.keyStates['ArrowRight'] = false;
 };
 
 // Add touch event listeners for each arrow
 upArrow.addEventListener('touchstart', (e) => {
     e.preventDefault();
     handleArrowTouch('Up');
-    upArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'; // White highlight
+    upArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'; // Highlight when pressed
 });
 
 downArrow.addEventListener('touchstart', (e) => {
     e.preventDefault();
     handleArrowTouch('Down');
-    downArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'; // White highlight
+    downArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
 });
 
 leftArrow.addEventListener('touchstart', (e) => {
     e.preventDefault();
     handleArrowTouch('Left');
-    leftArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'; // White highlight
+    leftArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
 });
 
 rightArrow.addEventListener('touchstart', (e) => {
     e.preventDefault();
     handleArrowTouch('Right');
-    rightArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'; // White highlight
+    rightArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
 });
 
-// Add touch end event listeners to reset direction keys
-upArrow.addEventListener('touchend', () => {
-    handleArrowRelease();
-    upArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // Restore white color
+// THE KEY FIX: Add touchend event listeners to RESET the key states
+upArrow.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['ArrowUp'] = false;
+    upArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // Restore original color
 });
 
-downArrow.addEventListener('touchend', () => {
-    handleArrowRelease();
-    downArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // Restore white color
+downArrow.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['ArrowDown'] = false;
+    downArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
 });
 
-leftArrow.addEventListener('touchend', () => {
-    handleArrowRelease();
-    leftArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // Restore white color
+leftArrow.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['ArrowLeft'] = false;
+    leftArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
 });
 
-rightArrow.addEventListener('touchend', () => {
-    handleArrowRelease();
-    rightArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'; // Restore white color
+rightArrow.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['ArrowRight'] = false;
+    rightArrow.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
 });
     
     // Button event handlers
     
     // Interact button (E key)
-    interactButton.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent default touch behavior
-        
-        // Create and dispatch a KeyE keydown event
+interactButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    
+    // Only send E events to the appropriate context
+    if (this.currentMiniGame) {
+        // In mini-game: Send to mini-game
+        this.keyStates['KeyE'] = true;
+    } else {
+        // Outside mini-game: Trigger interaction
         const eKeyEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
         this.onKeyDown(eKeyEvent);
-    });
+    }
+});
+
+interactButton.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['KeyE'] = false;
+});
     
-    // Jump button (Space key)
-    jumpButton.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent default touch behavior
-        
-        // Create and dispatch a Space keydown event
+   // Jump button (Space key)
+jumpButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    
+    // Only send Space events to the appropriate context
+    if (this.currentMiniGame) {
+        // In mini-game: Send to mini-game
+        this.keyStates['Space'] = true;
+    } else {
+        // Outside mini-game: Trigger jump
         const spaceKeyEvent = new KeyboardEvent('keydown', { code: 'Space' });
         this.onKeyDown(spaceKeyEvent);
-    });
+    }
+});
+
+jumpButton.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['Space'] = false;
+});
     
     // Escape button (Esc key) - for exiting mini-games
     escButton.addEventListener('touchstart', (e) => {
@@ -1872,7 +1890,7 @@ createReturnPortal() {
     const centerMaterial = new THREE.MeshBasicMaterial({
         color: 0x88FF99,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.7,
         side: THREE.DoubleSide
     });
     const center = new THREE.Mesh(centerGeometry, centerMaterial);
@@ -1930,7 +1948,7 @@ createReturnPortal() {
     
     // Add a special green glow light
     const portalLight = new THREE.PointLight(0x00FF44, 1, 8);
-    portalLight.position.set(0, 4, 16);
+    portalLight.position.set(-2.5, 4, 16);
     this.scene.add(portalLight);
     
     // Store reference to animate the portal
@@ -2962,26 +2980,115 @@ if (isMobile) {
         usernameDisplay.style.display = 'none';
     }
     
-    // Launch the Frogger game with the calculated dimensions
-    let game = null;
-    game = startFroggerGame(gameContainer, (score, result) => {
-        console.log(`Game over! Final score: ${score}`);
-        
-        // Check if the game ended with a win or loss
-        if (result === 'lost' || result === 'won') {
-            // Close the game
-            this.closeMiniGame();
+ // Launch the Frogger game with the calculated dimensions
+let game = null;
+game = startFroggerGame(gameContainer, (score, result) => {
+    console.log(`Game over! Final score: ${score}`);
+    
+    // Check if the game ended with a win or loss
+    if (result === 'lost' || result === 'won') {
+        // GAME OVER OVERLAY - ADD THIS ENTIRE SECTION
+        if (result === 'lost') {
+            // Create overlay for game over screen
+            const gameOverOverlay = document.createElement('div');
+            gameOverOverlay.style.position = 'absolute';
+            gameOverOverlay.style.top = '0';
+            gameOverOverlay.style.left = '0';
+            gameOverOverlay.style.width = '100%';
+            gameOverOverlay.style.height = '100%';
+            gameOverOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            gameOverOverlay.style.color = '#FF0000';
+            gameOverOverlay.style.fontFamily = "'Press Start 2P', monospace";
+            gameOverOverlay.style.fontSize = '24px';
+            gameOverOverlay.style.display = 'flex';
+            gameOverOverlay.style.flexDirection = 'column';
+            gameOverOverlay.style.justifyContent = 'center';
+            gameOverOverlay.style.alignItems = 'center';
+            gameOverOverlay.style.zIndex = '1000';
             
-            // Show appropriate message
-            if (result === 'won') {
-                // Show "YOU WIN!" in green
-                this.showInteractionFeedback('YOU WIN!', false);
-            } else {
-                // Show "GAME OVER" in red
+            // Game over text
+            const gameOverText = document.createElement('div');
+            gameOverText.textContent = 'GAME OVER';
+            gameOverText.style.marginBottom = '20px';
+            
+            // Returning text
+            const returningText = document.createElement('div');
+            returningText.textContent = 'Returning to arcade...';
+            returningText.style.fontSize = '16px';
+            returningText.style.color = '#FFFFFF';
+            
+            // Add text to overlay
+            gameOverOverlay.appendChild(gameOverText);
+            gameOverOverlay.appendChild(returningText);
+            
+            // Add overlay to game container
+            gameContainer.appendChild(gameOverOverlay);
+            
+            // Close after delay
+            setTimeout(() => {
+                // Close the game
+                this.closeMiniGame();
+                
+                // Show game over message in arcade
                 this.showInteractionFeedback('GAME OVER', true);
-            }
+            }, 1500); // 1.5 second delay
+        } else {
+            // WIN OVERLAY - ADD THIS ENTIRE SECTION
+            // Create overlay for win screen
+            const winOverlay = document.createElement('div');
+            winOverlay.style.position = 'absolute';
+            winOverlay.style.top = '0';
+            winOverlay.style.left = '0';
+            winOverlay.style.width = '100%';
+            winOverlay.style.height = '100%';
+            winOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            winOverlay.style.color = '#00FF00'; // Green for win
+            winOverlay.style.fontFamily = "'Press Start 2P', monospace";
+            winOverlay.style.fontSize = '24px';
+            winOverlay.style.display = 'flex';
+            winOverlay.style.flexDirection = 'column';
+            winOverlay.style.justifyContent = 'center';
+            winOverlay.style.alignItems = 'center';
+            winOverlay.style.zIndex = '1000';
+            
+            // Win text
+            const winText = document.createElement('div');
+            winText.textContent = 'YOU WIN!';
+            winText.style.marginBottom = '20px';
+            
+            // Score text
+            const scoreText = document.createElement('div');
+            scoreText.textContent = `Final Score: ${score}`;
+            scoreText.style.fontSize = '18px';
+            scoreText.style.color = '#FFFFFF';
+            scoreText.style.marginBottom = '20px';
+            
+            // Returning text
+            const returningText = document.createElement('div');
+            returningText.textContent = 'Returning to arcade...';
+            returningText.style.fontSize = '16px';
+            returningText.style.color = '#FFFFFF';
+            
+            // Add text to overlay
+            winOverlay.appendChild(winText);
+            winOverlay.appendChild(scoreText);
+            winOverlay.appendChild(returningText);
+            
+            // Add overlay to game container
+            gameContainer.appendChild(winOverlay);
+            
+            // Close after delay
+            setTimeout(() => {
+                // Close the game
+                this.closeMiniGame();
+                
+                // Show win message in arcade
+                this.showInteractionFeedback('YOU WIN!', false);
+            }, 2000); // 2 second delay for win (slightly longer than loss)
         }
-    }, gameWidth, gameHeight);
+        // END OF GAME OVER OVERLAY SECTION
+    }
+}, gameWidth, gameHeight);
     
   
     // Store reference to the current mini-game being played
@@ -2990,17 +3097,19 @@ if (isMobile) {
         machine: arcadeMachine,
         game: game
     };
-      // ADD THIS CODE - Create an input bridge for mobile controls
+
+
+// Create an input bridge for mobile controls
 if (mobileControls) {
-    // Create an interval to check joystick state and dispatch events to the game
-    const joystickCheckInterval = setInterval(() => {
+    // Create an interval to check control states and dispatch events to the game
+    const inputInterval = setInterval(() => {
         // Stop checking if the game is closed
         if (!this.currentMiniGame || !this.currentMiniGame.game) {
-            clearInterval(joystickCheckInterval);
+            clearInterval(inputInterval);
             return;
         }
         
-        // Check right joystick (camera controls) for arrow key movements
+        // Process arrow key controls
         if (this.keyStates['ArrowUp']) {
             const upEvent = new KeyboardEvent('keydown', { code: 'ArrowUp' });
             game.handleKeyDown(upEvent);
@@ -3017,10 +3126,22 @@ if (mobileControls) {
             const rightEvent = new KeyboardEvent('keydown', { code: 'ArrowRight' });
             game.handleKeyDown(rightEvent);
         }
+        
+        // Process Space key for shooting/jumping
+        if (this.keyStates['Space']) {
+            const spaceEvent = new KeyboardEvent('keydown', { code: 'Space' });
+            game.handleKeyDown(spaceEvent);
+        }
+        
+        // Process E key for any game that uses it
+        if (this.keyStates['KeyE']) {
+            const eEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
+            game.handleKeyDown(eEvent);
+        }
     }, 50); // Check every 50ms
     
     // Store the interval ID to clear it later
-    this.currentMiniGame.inputInterval = joystickCheckInterval;
+    this.currentMiniGame.inputInterval = inputInterval;
 }
     
     // Add keyboard event listener for ESC key only
@@ -3040,6 +3161,8 @@ if (mobileControls) {
  * @param {Object} arcadeMachine - The arcade machine object
  */
 launchPongGame(arcadeMachine) {
+
+    
     // Create the fullscreen overlay
     const overlay = document.createElement('div');
     overlay.id = 'mini-game-overlay';
@@ -3233,38 +3356,40 @@ if (mobileControls) {
         machine: arcadeMachine,
         game: game
     };
-    
-// ADD THIS CODE - Create an input bridge for mobile controls
+
+// Create a custom input bridge for Pong
 if (mobileControls) {
-    // Create an interval to check joystick state and dispatch events to the game
-    const joystickCheckInterval = setInterval(() => {
-        // Stop checking if the game is closed
+    const inputInterval = setInterval(() => {
+        // Stop checking if game is closed
         if (!this.currentMiniGame || !this.currentMiniGame.game) {
-            clearInterval(joystickCheckInterval);
+            clearInterval(inputInterval);
             return;
         }
         
-        // Check right joystick (camera controls) for arrow key movements
-        if (this.keyStates['ArrowUp']) {
-            const upEvent = new KeyboardEvent('keydown', { code: 'ArrowUp' });
-            game.handleKeyDown(upEvent);
+        const pongGame = this.currentMiniGame.game;
+        
+        // Initialize the keys object if it doesn't exist
+        if (!pongGame.keys) {
+            pongGame.keys = {};
         }
-        if (this.keyStates['ArrowDown']) {
-            const downEvent = new KeyboardEvent('keydown', { code: 'ArrowDown' });
-            game.handleKeyDown(downEvent);
+        
+        // Directly synchronize our keyStates with the game's keys object
+        pongGame.keys['ArrowUp'] = this.keyStates['ArrowUp'];
+        pongGame.keys['ArrowDown'] = this.keyStates['ArrowDown'];
+        pongGame.keys['Space'] = this.keyStates['Space'];
+        
+        // Special case for Space key - launch ball if needed
+        if (this.keyStates['Space'] && pongGame.ballStuckToPaddle && !pongGame._spaceFired) {
+            pongGame._spaceFired = true; // Flag to prevent multiple launches
+            pongGame.launchBall();
+        } else if (!this.keyStates['Space']) {
+            pongGame._spaceFired = false; // Reset flag when key is released
         }
-        if (this.keyStates['ArrowLeft']) {
-            const leftEvent = new KeyboardEvent('keydown', { code: 'ArrowLeft' });
-            game.handleKeyDown(leftEvent);
-        }
-        if (this.keyStates['ArrowRight']) {
-            const rightEvent = new KeyboardEvent('keydown', { code: 'ArrowRight' });
-            game.handleKeyDown(rightEvent);
-        }
-    }, 50); // Check every 50ms
+        
+    }, 16);
     
     // Store the interval ID to clear it later
-    this.currentMiniGame.inputInterval = joystickCheckInterval;
+    this.currentMiniGame.inputInterval = inputInterval;
 }
 
     // Add keyboard event listener for ESC key only
@@ -3476,7 +3601,41 @@ if (mobileControls) {
         machine: arcadeMachine,
         game: game
     };
+
+// Create an input bridge for Space Invaders
+if (mobileControls) {
+    // Create an interval to directly manipulate the game's key states
+    const inputInterval = setInterval(() => {
+        // Stop checking if the game is closed
+        if (!this.currentMiniGame || !this.currentMiniGame.game) {
+            clearInterval(inputInterval);
+            return;
+        }
+        
+        const invadersGame = this.currentMiniGame.game;
+        
+        // If the game has a keys object, directly manipulate it
+        if (invadersGame.keys) {
+            // Update the game's internal key state directly
+            invadersGame.keys['ArrowLeft'] = this.keyStates['ArrowLeft'];
+            invadersGame.keys['ArrowRight'] = this.keyStates['ArrowRight'];
+            
+            // Handle space key for firing
+            if (this.keyStates['Space'] && !this._lastSpaceState) {
+                // Space was just pressed
+                if (invadersGame.isRunning && invadersGame.player && invadersGame.player.fire) {
+                    invadersGame.player.fire(invadersGame.playerBullets);
+                }
+            }
+            // Track space key state to only fire once per press
+            this._lastSpaceState = this.keyStates['Space'];
+        }
+    }, 16); // Run at ~60fps for smoother control
     
+    // Store the interval ID to clear it later
+    this.currentMiniGame.inputInterval = inputInterval;
+}
+
     // Add keyboard event listener for ESC key only
     this.miniGameKeyHandler = (event) => {
         if (event.code === 'Escape') {
@@ -3735,6 +3894,51 @@ if (mobileControls) {
         machine: arcadeMachine,
         game: game
     };
+
+    // Create an input bridge for mobile controls
+if (mobileControls) {
+    // Create an interval to check control states and dispatch events to the game
+    const inputInterval = setInterval(() => {
+        // Stop checking if the game is closed
+        if (!this.currentMiniGame || !this.currentMiniGame.game) {
+            clearInterval(inputInterval);
+            return;
+        }
+        
+        // Process arrow key controls
+        if (this.keyStates['ArrowUp']) {
+            const upEvent = new KeyboardEvent('keydown', { code: 'ArrowUp' });
+            game.handleKeyDown(upEvent);
+        }
+        if (this.keyStates['ArrowDown']) {
+            const downEvent = new KeyboardEvent('keydown', { code: 'ArrowDown' });
+            game.handleKeyDown(downEvent);
+        }
+        if (this.keyStates['ArrowLeft']) {
+            const leftEvent = new KeyboardEvent('keydown', { code: 'ArrowLeft' });
+            game.handleKeyDown(leftEvent);
+        }
+        if (this.keyStates['ArrowRight']) {
+            const rightEvent = new KeyboardEvent('keydown', { code: 'ArrowRight' });
+            game.handleKeyDown(rightEvent);
+        }
+        
+        // Process Space key for shooting/jumping
+        if (this.keyStates['Space']) {
+            const spaceEvent = new KeyboardEvent('keydown', { code: 'Space' });
+            game.handleKeyDown(spaceEvent);
+        }
+        
+        // Process E key for any game that uses it
+        if (this.keyStates['KeyE']) {
+            const eEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
+            game.handleKeyDown(eEvent);
+        }
+    }, 50); // Check every 50ms
+    
+    // Store the interval ID to clear it later
+    this.currentMiniGame.inputInterval = inputInterval;
+}
     
     // Add keyboard event listener for ESC key only
     this.miniGameKeyHandler = (event) => {
@@ -3946,6 +4150,50 @@ if (mobileControls) {
         machine: arcadeMachine,
         game: game
     };
+
+ // Create an input bridge specifically for Asteroids
+if (mobileControls) {
+    // Create an interval to directly update the Asteroids game's key states
+    const inputInterval = setInterval(() => {
+        // Stop checking if the game is closed
+        if (!this.currentMiniGame || !this.currentMiniGame.game) {
+            clearInterval(inputInterval);
+            return;
+        }
+        
+        // Get reference to the Asteroids game instance
+        const asteroidsGame = this.currentMiniGame.game;
+        
+        // Make sure the game has a keys object
+        if (asteroidsGame.keys) {
+            // Directly update the game's key states from our mobile controls
+            asteroidsGame.keys['ArrowUp'] = this.keyStates['ArrowUp'] || false;
+            asteroidsGame.keys['ArrowDown'] = this.keyStates['ArrowDown'] || false;
+            asteroidsGame.keys['ArrowLeft'] = this.keyStates['ArrowLeft'] || false;
+            asteroidsGame.keys['ArrowRight'] = this.keyStates['ArrowRight'] || false;
+            asteroidsGame.keys['Space'] = this.keyStates['Space'] || false;
+            
+            // Handle Spacebar for firing - manually trigger the fire method if needed
+            if (this.keyStates['Space'] && !asteroidsGame.gameOver && 
+                asteroidsGame.ship && asteroidsGame.ship.fireBullet) {
+                
+                // We need to rate-limit firing to avoid too many bullets
+                // Only fire if we haven't just fired recently
+                const now = Date.now();
+                if (!this.lastFireTime || now - this.lastFireTime > 250) { // Fire max 4 times per second
+                    asteroidsGame.ship.fireBullet(asteroidsGame.bullets);
+                    this.lastFireTime = now;
+                }
+            }
+        } else {
+            console.warn("Asteroids game doesn't have a keys object");
+        }
+    }, 16); // ~60fps for smooth control
+    
+    // Store the interval ID to clear it later
+    this.currentMiniGame.inputInterval = inputInterval;
+}
+
     
     // Add keyboard event listener for ESC key only
     this.miniGameKeyHandler = (event) => {
@@ -4151,7 +4399,52 @@ if (mobileControls) {
         machine: arcadeMachine,
         game: game
     };
+    // Create an input bridge for mobile controls
+if (mobileControls) {
+    // Create an interval to check control states and dispatch events to the game
+    const inputInterval = setInterval(() => {
+        // Stop checking if the game is closed
+        if (!this.currentMiniGame || !this.currentMiniGame.game) {
+            clearInterval(inputInterval);
+            return;
+        }
+        
+        // Process arrow key controls
+        if (this.keyStates['ArrowUp']) {
+            const upEvent = new KeyboardEvent('keydown', { code: 'ArrowUp' });
+            game.handleKeyDown(upEvent);
+        }
+        if (this.keyStates['ArrowDown']) {
+            const downEvent = new KeyboardEvent('keydown', { code: 'ArrowDown' });
+            game.handleKeyDown(downEvent);
+        }
+        if (this.keyStates['ArrowLeft']) {
+            const leftEvent = new KeyboardEvent('keydown', { code: 'ArrowLeft' });
+            game.handleKeyDown(leftEvent);
+        }
+        if (this.keyStates['ArrowRight']) {
+            const rightEvent = new KeyboardEvent('keydown', { code: 'ArrowRight' });
+            game.handleKeyDown(rightEvent);
+        }
+        
+        // Process Space key for shooting/jumping
+        if (this.keyStates['Space']) {
+            const spaceEvent = new KeyboardEvent('keydown', { code: 'Space' });
+            game.handleKeyDown(spaceEvent);
+        }
+        
+        // Process E key for any game that uses it
+        if (this.keyStates['KeyE']) {
+            const eEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
+            game.handleKeyDown(eEvent);
+        }
+    }, 50); // Check every 50ms
     
+    // Store the interval ID to clear it later
+    this.currentMiniGame.inputInterval = inputInterval;
+}
+
+
     // Add keyboard event listener for ESC key only
     this.miniGameKeyHandler = (event) => {
         if (event.code === 'Escape') {
@@ -4350,10 +4643,17 @@ updateFpsCounter(now) {
 // In your existing closeMiniGame method
 closeMiniGame() {
     if (this.currentMiniGame) {
-                // Clear any input bridge interval
-                if (this.currentMiniGame.inputInterval) {
-                    clearInterval(this.currentMiniGame.inputInterval);
-                }
+                   // Clear any input bridge interval
+        if (this.currentMiniGame.inputInterval) {
+            clearInterval(this.currentMiniGame.inputInterval);
+        }
+                // Reset all key states to prevent stuck inputs
+                this.keyStates['ArrowUp'] = false;
+                this.keyStates['ArrowDown'] = false;
+                this.keyStates['ArrowLeft'] = false;
+                this.keyStates['ArrowRight'] = false;
+                this.keyStates['Space'] = false;
+                this.keyStates['KeyE'] = false;
         
         // Stop the game if it exists
         if (this.currentMiniGame.game) {
@@ -4408,6 +4708,10 @@ onKeyUp(event) {
  * Handle continuous movement and rotation based on currently pressed keys
  */
 handleMovement() {
+        // Don't process movement when in a mini-game
+        if (this.currentMiniGame) {
+            return;
+        }
     
     // If no keys are pressed, skip vertical angle handling but still process auto-return
     const anyKeysPressed = Object.values(this.keyStates).some(state => state);
