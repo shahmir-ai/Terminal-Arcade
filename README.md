@@ -1,8 +1,7 @@
 # Terminal Arcade
 Vibe coded web game. Insert coin to play!
 
-Link
-
+[arcade.shahmir.ca](https://arcade.shahmir.ca/)
 
 Six Playable Mini-Games:
 - Frogger
