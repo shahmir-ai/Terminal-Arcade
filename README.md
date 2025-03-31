@@ -51,4 +51,4 @@ Textures: OpenGameArt.org
 
 Sound effects: Freesound.org
 
-Font: "Press Start 2P" from Google Fonts
+Fonts: 1001fonts.com
