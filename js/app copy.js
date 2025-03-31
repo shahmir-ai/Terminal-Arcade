@@ -70,13 +70,13 @@ this.musicVolume = 0.12; // Default music volume (12%)
 this.soundVolume = 0.45; // Default sound effects volume (45%)
 this.lastFootstepTime = 0;     // Tracks when the last footstep sound played
 this.footstepInterval = 400;   // Milliseconds between footstep sounds
-this.audioInitialized = false;  
-
-
+this.audioInitialized = false;
+ 
+// Font for neon sign
+this.neonFont = null;
 
 
     }
-    
     init() {
         console.log('Initializing Vibe Arcade...');
         
@@ -105,6 +105,8 @@ this.audioInitialized = false;
     
         // Load audio
         this.loadAudio();
+        // Load font for neon sign
+        this.loadNeonFont();
     
         // Create the room and lighting in the correct order
         this.createArcadeRoom();
@@ -119,6 +121,10 @@ this.audioInitialized = false;
         // Add decorative elements
         this.createBarrelWithPlant();
         this.createWallDecorations();
+        
+        // Create hallway and door
+        this.createHallway();
+        this.createDoor();
     
         // Set up common event listeners for both portal and normal entry
         window.addEventListener('resize', this.onWindowResize, false);
@@ -135,7 +141,7 @@ this.audioInitialized = false;
             this.createFpsCounter();
             
             // Position player near entrance
-            this.camera.position.set(-2, 4, 12); // Near entrance of arcade
+            this.camera.position.set(2, 4, 12); // Near entrance of arcade
             this.camera.lookAt(0, 4, -17);
             
             // Create return portal
@@ -171,6 +177,176 @@ this.audioInitialized = false;
 this.setupMobileControls(); // Set up mobile touch controls if on a mobile device
 
     }
+
+
+
+/**
+ * Load and set up all audio for the game
+ */
+loadAudio() {
+    console.log('Loading audio files...');
+    
+    // Create an Audio Listener and add it to the camera
+    this.listener = new THREE.AudioListener();
+    this.camera.add(this.listener);
+    
+    // Function to load a sound
+    const loadSound = (name, path, loop = false, volume = this.soundVolume) => {
+        // Create audio object
+        const sound = new THREE.Audio(this.listener);
+        
+        // Load audio file
+        const audioLoader = new THREE.AudioLoader();
+        audioLoader.load(
+            path,
+            (buffer) => {
+                sound.setBuffer(buffer);
+                sound.setLoop(loop);
+                sound.setVolume(volume);
+                this.sounds[name] = sound;
+                console.log(`Loaded sound: ${name}`);
+                
+                // If this is the last sound, mark audio as loaded
+                if (name === 'gameOver') {
+                    this.audioLoaded = true;
+                    console.log('All audio loaded successfully!');
+                }
+            },
+            (xhr) => {
+                // Loading progress
+                console.log(`${name} ${(xhr.loaded / xhr.total * 100).toFixed(0)}% loaded`);
+            },
+            (error) => {
+                console.error(`Error loading sound ${name}:`, error);
+            }
+        );
+        return sound;
+    };
+    
+    // Load background music (looping)
+    this.backgroundMusic = loadSound('backgroundMusic', 'assets/sounds/arcade_ambient.mp3', true, this.musicVolume);
+    
+    // Load sound effects
+    loadSound('interaction', 'assets/sounds/button_press.mp3');
+    loadSound('jump', 'assets/sounds/jump.mp3');
+    loadSound('elevator', 'assets/sounds/elevator.mp3');
+    loadSound('gameOver', 'assets/sounds/game_over.mp3');
+    loadSound('footstep', 'assets/sounds/footstep.mp3');
+
+}
+
+/**
+ * Load the font required for the neon sign
+ */
+loadNeonFont() {
+    console.log('Loading neon font...');
+    const loader = new THREE.FontLoader();
+    loader.load(
+        'assets/fonts/neon.typeface.json', // Path to the NEW font file
+        // onLoad callback
+        (font) => {
+            console.log('Neon font loaded successfully.');
+            this.neonFont = font;
+            // Now that the font is loaded, create the sign
+            this.createNeonSign();
+        },
+        // onProgress callback (optional)
+        (xhr) => {
+            console.log(`Neon font ${(xhr.loaded / xhr.total * 100).toFixed(0)}% loaded`);
+        },
+        // onError callback
+        (error) => {
+            console.error('Error loading neon font:', error);
+        }
+    );
+}
+
+/**
+ * Create the 3D neon sign geometry and add it to the scene
+ */
+createNeonSign() {
+    // Guard clause: Don't proceed if the font hasn't loaded
+    if (!this.neonFont) {
+        console.error('Cannot create neon sign: Font not loaded yet.');
+        return;
+    }
+    
+    console.log('Creating neon sign...');
+
+    // 1. Define Material (Simple bright green)
+    const neonMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
+    // 2. Create Text Geometry ("VIBEVERSE PORTAL")
+    const textGeometry = new THREE.TextGeometry('VIBEVERSE PORTAL', {
+        font: this.neonFont,
+        size: 0.3,   // <<< EDIT THIS: Controls text size
+        height: 0.05, // <<< EDIT THIS: Controls text depth/thickness
+        curveSegments: 12,
+        bevelEnabled: false
+    });
+    // Center the text geometry origin for easier positioning
+    textGeometry.computeBoundingBox();
+    const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+    textGeometry.translate(-textWidth / 2, 0, 0);
+
+    const textMesh = new THREE.Mesh(textGeometry, neonMaterial);
+
+    // 3. Create Arrow Geometry ("-->") using TubeGeometry
+    const arrowPath = new THREE.CurvePath();
+    // Define points for the arrow shape (adjust as needed)
+    const arrowStartX = textWidth / 2 - 1.15; // <<< EDIT THIS: Arrow horizontal start position relative to text end
+    const arrowY = -0.5; // <<< EDIT THIS: Arrow vertical position relative to text baseline
+    const arrowLength = 1.0; // <<< EDIT THIS: Length of the arrow shaft
+    const arrowheadSize = 0.3; // <<< EDIT THIS: Size of the arrowhead lines
+
+    // Curved Shaft using Quadratic Bezier Curve
+    const startPoint = new THREE.Vector3(arrowStartX, arrowY, 0);
+    const endPoint = new THREE.Vector3(arrowStartX + arrowLength, arrowY, 0);
+    // Control point - offset vertically from the midpoint for a curve
+    const controlPoint = new THREE.Vector3(
+        arrowStartX + arrowLength / 2,
+        arrowY - 0.2, // <<< EDIT THIS: Y-offset of curve control point (changes curve amount/direction)
+        0
+    );
+    arrowPath.add(new THREE.QuadraticBezierCurve3(startPoint, controlPoint, endPoint));
+
+    // Arrowhead lines - adjust start position to match the end of the curve
+    arrowPath.add(new THREE.LineCurve3(
+        endPoint, // Start from the curve's end point
+        new THREE.Vector3(endPoint.x - arrowheadSize, endPoint.y + arrowheadSize, 0)
+    ));
+     arrowPath.add(new THREE.LineCurve3(
+        endPoint, // Start from the curve's end point
+        new THREE.Vector3(endPoint.x - arrowheadSize, endPoint.y - arrowheadSize, 0)
+    ));
+
+    const tubeGeometry = new THREE.TubeGeometry(
+        arrowPath,
+        20,    // tubularSegments (smoothness)
+        0.02,  // <<< EDIT THIS: radius (thickness of the tube)
+        8,     // radialSegments (roundness)
+        false  // closed
+    );
+    const arrowMesh = new THREE.Mesh(tubeGeometry, neonMaterial);
+    // No need to position arrowMesh separately if path coordinates are relative to text center
+
+    // 4. Grouping
+    const signGroup = new THREE.Group();
+    signGroup.add(textMesh);
+    signGroup.add(arrowMesh); // Add the combined arrow mesh
+
+    // 5. Positioning the entire sign group
+    // Position: Top-left on the North wall (z = -17.5)
+    // <<< EDIT THESE (X, Y, Z): Overall position of the sign group
+    signGroup.position.set(-3, 6.5, -17.4); // x=Left/Right, y=Up/Down, z=Forward/Backward
+    // Optional: Rotate slightly if needed
+    // signGroup.rotation.y = Math.PI / 12; // Example slight rotation
+
+    // 6. Add Group to Scene
+    this.scene.add(signGroup);
+
+    console.log('Neon sign added to scene.');
+}
 
     /**
      * Create the arcade room with floor and walls
@@ -216,12 +392,61 @@ createArcadeRoom() {
     this.arcadeRoom.walls.push(northWall);
     this.scene.add(northWall);
     
-    // South wall (front)
-    const southWall = new THREE.Mesh(shortWallGeometry, wallMaterial);
-    southWall.position.set(0, 4, 17.5); // Center x, half height, +z edge of floor
-    southWall.rotation.y = Math.PI; // Rotate 180 degrees
-    this.arcadeRoom.walls.push(southWall);
-    this.scene.add(southWall);
+    // COMPLETELY REBUILD SOUTH WALL WITH PROPER DOORWAY
+    // South wall (front) with doorway
+    const doorWidth = 2.6;  // Wider door (1.3x original)
+    const doorHeight = 6.0; // Taller door (1.5x original)
+    const wallWidth = 12;   // Total wall width
+    const wallHeight = 8;   // Total wall height
+    const doorPositionX = -wallWidth/4; // Door position (left of center)
+    
+    // Calculate door boundaries
+    const doorLeft = doorPositionX - doorWidth/2;
+    const doorRight = doorPositionX + doorWidth/2;
+    
+    console.log(`Creating doorway: width=${doorWidth}, height=${doorHeight}, position=${doorPositionX}`);
+    
+    // Create left section of wall
+    if (doorLeft > -6) { // Only if there's space to the left of the door
+        const leftWidth = doorLeft + 6; // From left edge to left side of door
+        const leftWall = new THREE.Mesh(
+            new THREE.BoxGeometry(leftWidth, wallHeight, 0.2),
+            wallMaterial
+        );
+        leftWall.position.set(-6 + leftWidth/2, wallHeight/2, 17.5);
+        this.arcadeRoom.walls.push(leftWall);
+        this.scene.add(leftWall);
+        console.log(`Created left wall section: width=${leftWidth}`);
+    }
+    
+    // Create right section of wall
+    if (doorRight < 6) { // Only if there's space to the right of the door
+        const rightWidth = 6 - doorRight; // From right side of door to right edge
+        const rightWall = new THREE.Mesh(
+            new THREE.BoxGeometry(rightWidth, wallHeight, 0.2),
+            wallMaterial
+        );
+        rightWall.position.set(doorRight + rightWidth/2, wallHeight/2, 17.5);
+        this.arcadeRoom.walls.push(rightWall);
+        this.scene.add(rightWall);
+        console.log(`Created right wall section: width=${rightWidth}`);
+    }
+    
+    // Create top section of wall (if door doesn't reach ceiling)
+    if (doorHeight < wallHeight) {
+        const topWall = new THREE.Mesh(
+            new THREE.BoxGeometry(doorWidth, wallHeight - doorHeight, 0.2),
+            wallMaterial
+        );
+        // Position at the top of the doorway
+        topWall.position.set(doorPositionX, doorHeight + (wallHeight - doorHeight)/2, 17.5);
+        this.arcadeRoom.walls.push(topWall);
+        this.scene.add(topWall);
+        console.log(`Created top wall section: width=${doorWidth}, height=${wallHeight - doorHeight}`);
+    }
+    
+    // Debug message
+    console.log(`Created doorway at x=${doorPositionX}, width=${doorWidth}, height=${doorHeight}`);
     
     // East wall (right)
     const eastWall = new THREE.Mesh(longWallGeometry, wallMaterial);
@@ -907,59 +1132,6 @@ updateScreenFrame(animationId) {
 }
 
 
-/**
- * Load and set up all audio for the game
- */
-loadAudio() {
-    console.log('Loading audio files...');
-    
-    // Create an Audio Listener and add it to the camera
-    this.listener = new THREE.AudioListener();
-    this.camera.add(this.listener);
-    
-    // Function to load a sound
-    const loadSound = (name, path, loop = false, volume = this.soundVolume) => {
-        // Create audio object
-        const sound = new THREE.Audio(this.listener);
-        
-        // Load audio file
-        const audioLoader = new THREE.AudioLoader();
-        audioLoader.load(
-            path,
-            (buffer) => {
-                sound.setBuffer(buffer);
-                sound.setLoop(loop);
-                sound.setVolume(volume);
-                this.sounds[name] = sound;
-                console.log(`Loaded sound: ${name}`);
-                
-                // If this is the last sound, mark audio as loaded
-                if (name === 'gameOver') {
-                    this.audioLoaded = true;
-                    console.log('All audio loaded successfully!');
-                }
-            },
-            (xhr) => {
-                // Loading progress
-                console.log(`${name} ${(xhr.loaded / xhr.total * 100).toFixed(0)}% loaded`);
-            },
-            (error) => {
-                console.error(`Error loading sound ${name}:`, error);
-            }
-        );
-        return sound;
-    };
-    
-    // Load background music (looping)
-    this.backgroundMusic = loadSound('backgroundMusic', 'assets/sounds/arcade_ambient.mp3', true, this.musicVolume);
-    
-    // Load sound effects
-    loadSound('interaction', 'assets/sounds/button_press.mp3');
-    loadSound('jump', 'assets/sounds/jump.mp3');
-    loadSound('gameOver', 'assets/sounds/game_over.mp3');
-    loadSound('footstep', 'assets/sounds/footstep.mp3');
-
-}
 
 /**
  * Play background music
@@ -1468,6 +1640,8 @@ const rightArrow = createArrowButton('right', '▶', '50px', '100px');
         button.style.userSelect = 'none'; // Prevent text selection
         button.style.cursor = 'pointer';
         controlsContainer.appendChild(button);
+        
+
         return button;
     };
     
@@ -1484,6 +1658,15 @@ jumpButton.style.bottom = '220px'; // 30px above right joystick
 // Create escape button (ESC) - positioned in top-right corner
 const escButton = createButton('esc-button', 'ESC', '20px', '20px', 'rgba(255, 0, 0, 0.3)');
     escButton.style.display = 'none'; // Initially hidden
+
+   
+
+
+// Create duplicate jump button (Space) - positioned above left joystick
+const leftJumpButton = createButton('left-jump-button', 'JUMP', 'auto', 'auto', 'rgba(255, 255, 0, 0.3)');
+leftJumpButton.style.left = '40px'; // Position above left joystick
+leftJumpButton.style.bottom = '160px'; // 30px above left joystick
+controlsContainer.appendChild(leftJumpButton);
     
   // 5. Initialize the left joystick with NippleJS (keep only the left one)
 const leftJoystick = nipplejs.create({
@@ -1651,6 +1834,27 @@ jumpButton.addEventListener('touchend', (e) => {
     this.keyStates['Space'] = false;
 });
     
+
+// Add event listeners for the left jump button
+leftJumpButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    
+    // Only send Space events to the appropriate context
+    if (this.currentMiniGame) {
+        // In mini-game: Send to mini-game
+        this.keyStates['Space'] = true;
+    } else {
+        // Outside mini-game: Trigger jump
+        const spaceKeyEvent = new KeyboardEvent('keydown', { code: 'Space' });
+        this.onKeyDown(spaceKeyEvent);
+    }
+});
+
+leftJumpButton.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    this.keyStates['Space'] = false;
+});
+
     // Escape button (Esc key) - for exiting mini-games
     escButton.addEventListener('touchstart', (e) => {
         e.preventDefault(); // Prevent default touch behavior
@@ -1858,6 +2062,51 @@ createWallMaterial(texture, repeatX, repeatY) {
 }
 
 /**
+ * Update texture tiling for a specific wall
+ * @param {string} wallName - The wall to update ('northWall', 'southWallLeft', 'southWallRight', 'southWallTop', 'eastWall', 'westWall', etc.)
+ * @param {number} repeatX - New horizontal repetition value
+ * @param {number} repeatY - New vertical repetition value
+ */
+updateWallTextureTiling(wallName, repeatX, repeatY) {
+    // Check if the wall name is valid
+    if (!this.wallTextureSettings || !this.wallTextureSettings[wallName]) {
+        console.error(`Invalid wall name: ${wallName}. Valid options are: northWall, southWallLeft, southWallRight, southWallTop, eastWall, westWall, hallwayLeft, hallwayRight, hallwayEnd`);
+        return;
+    }
+    
+    // Update the texture tiling settings
+    this.wallTextureSettings[wallName].repeatX = repeatX;
+    this.wallTextureSettings[wallName].repeatY = repeatY;
+    
+    console.log(`Updated ${wallName} texture tiling to repeatX=${repeatX}, repeatY=${repeatY}`);
+    
+    // Re-apply the textures with the new settings
+    this.fixWalls();
+}
+
+/**
+ * Update texture tiling for all south wall sections at once
+ * @param {number} repeatX - New horizontal repetition value
+ * @param {number} repeatY - New vertical repetition value
+ */
+updateAllSouthWallTextureTiling(repeatX, repeatY) {
+    // Update all south wall sections
+    this.wallTextureSettings.southWallLeft.repeatX = repeatX;
+    this.wallTextureSettings.southWallLeft.repeatY = repeatY;
+    
+    this.wallTextureSettings.southWallRight.repeatX = repeatX;
+    this.wallTextureSettings.southWallRight.repeatY = repeatY;
+    
+    this.wallTextureSettings.southWallTop.repeatX = repeatX;
+    this.wallTextureSettings.southWallTop.repeatY = repeatY;
+    
+    console.log(`Updated ALL South wall sections texture tiling to repeatX=${repeatX}, repeatY=${repeatY}`);
+    
+    // Re-apply the textures with the new settings
+    this.fixWalls();
+}
+
+/**
  * Create a return portal near the entrance when player comes from another game
  */
 createReturnPortal() {
@@ -1898,7 +2147,7 @@ createReturnPortal() {
     
     // Add a subtle particle effect (small floating dots)
     const particlesGeometry = new THREE.BufferGeometry();
-    const particleCount = 60;
+    const particleCount = 40;
     const positions = new Float32Array(particleCount * 3);
     
     // Create random positions for particles within the portal
@@ -1928,7 +2177,7 @@ createReturnPortal() {
     portalGroup.add(particles);
     
     // Position the portal - behind the entrance, facing the player
-    portalGroup.position.set(-3, 4, 17); // Directly behind spawn point
+    portalGroup.position.set(3, 4, 17); // Directly behind spawn point
     portalGroup.rotation.y = Math.PI; // Face toward the arcade
     
     // Create an animation for the portal
@@ -1948,7 +2197,7 @@ createReturnPortal() {
     
     // Add a special green glow light
     const portalLight = new THREE.PointLight(0x00FF44, 1, 8);
-    portalLight.position.set(-2.5, 4, 16);
+    portalLight.position.set(2.5, 4, 16);
     this.scene.add(portalLight);
     
     // Store reference to animate the portal
@@ -1971,40 +2220,135 @@ fixWalls() {
         return;
     }
     
+    // Store texture tiling settings for easy adjustment
+    // These can be modified to change the texture tiling
+    this.wallTextureSettings = {
+        northWall: { repeatX: 5, repeatY: 2 },    // North wall (far end)
+        southWallLeft: { repeatX: .5, repeatY: 2 },  // Left section of south wall (left of doorway)
+        southWallRight: { repeatX: 3, repeatY: 2 }, // Right section of south wall (right of doorway)
+        southWallTop: { repeatX: 0.6, repeatY: 0.5 },   // Top section of south wall (above doorway)
+        eastWall: { repeatX: 15, repeatY: 2 },    // East wall (right side)
+        westWall: { repeatX: 15, repeatY: 2 },    // West wall (left side)
+        hallwayLeft: { repeatX: 15, repeatY: 2 }, // Hallway left wall
+        hallwayRight: { repeatX: 15, repeatY: 2 },// Hallway right wall
+        hallwayEnd: { repeatX: 5, repeatY: 2 }    // Hallway end wall
+    };
+    
+    console.log('Wall texture tiling settings:', this.wallTextureSettings);
+    
     // Load the wall texture once
     textureLoader.load('assets/textures/wall_arcade.jpg', (texture) => {
-        // Create material for each wall with appropriate repetition
-        const northWallMaterial = this.createWallMaterial(texture, 5, 2);  // North wall (far end)
-        const southWallMaterial = this.createWallMaterial(texture, 5, 2);  // South wall (entrance)
-        const eastWallMaterial = this.createWallMaterial(texture, 15, 2);  // East wall (right side)
-        const westWallMaterial = this.createWallMaterial(texture, 15, 2);  // West wall (left side)
+        // Create materials for each wall with appropriate repetition
+        const northWallMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.northWall.repeatX,
+            this.wallTextureSettings.northWall.repeatY
+        );
+        
+        // Create separate materials for each section of the south wall
+        const southWallLeftMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.southWallLeft.repeatX,
+            this.wallTextureSettings.southWallLeft.repeatY
+        );
+        
+        const southWallRightMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.southWallRight.repeatX,
+            this.wallTextureSettings.southWallRight.repeatY
+        );
+        
+        const southWallTopMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.southWallTop.repeatX,
+            this.wallTextureSettings.southWallTop.repeatY
+        );
+        
+        const eastWallMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.eastWall.repeatX,
+            this.wallTextureSettings.eastWall.repeatY
+        );
+        
+        const westWallMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.westWall.repeatX,
+            this.wallTextureSettings.westWall.repeatY
+        );
+        
+        // Create materials for hallway walls
+        const hallwayLeftMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.hallwayLeft.repeatX,
+            this.wallTextureSettings.hallwayLeft.repeatY
+        );
+        
+        const hallwayRightMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.hallwayRight.repeatX,
+            this.wallTextureSettings.hallwayRight.repeatY
+        );
+        
+        const hallwayEndMaterial = this.createWallMaterial(
+            texture,
+            this.wallTextureSettings.hallwayEnd.repeatX,
+            this.wallTextureSettings.hallwayEnd.repeatY
+        );
 
-        // Apply materials to specific walls
-        if (this.arcadeRoom.walls[0]) {
-            this.arcadeRoom.walls[0].material = northWallMaterial; // North wall (far end)
-        }
-        
-        if (this.arcadeRoom.walls[1]) {
-            this.arcadeRoom.walls[1].material = southWallMaterial; // South wall (entrance)
-        }
-        
-        if (this.arcadeRoom.walls[2]) {
-            this.arcadeRoom.walls[2].material = eastWallMaterial; // East wall (right side)
-        }
-        
-        if (this.arcadeRoom.walls[3]) {
-            this.arcadeRoom.walls[3].material = westWallMaterial; // West wall (left side)
-        }
-        
-        // Force all walls to update
+        // Apply materials to walls based on their position and orientation
         this.arcadeRoom.walls.forEach((wall, index) => {
+            // Determine which wall this is based on its position and rotation
+            const position = wall.position;
+            const rotation = wall.rotation;
+            
+            // North wall (back) at z = -17.5
+            if (Math.abs(position.z + 17.5) < 0.1 && Math.abs(rotation.y) < 0.1) {
+                wall.material = northWallMaterial;
+                console.log(`Wall ${index} identified as North wall, applied texture with repeatX=${this.wallTextureSettings.northWall.repeatX}, repeatY=${this.wallTextureSettings.northWall.repeatY}`);
+            }
+            // South wall sections (front with doorway) at z = 17.5
+            else if (Math.abs(position.z - 17.5) < 0.1 && Math.abs(rotation.y) < 0.1) {
+                // Identify which section of the south wall this is based on position
+                
+                // Left section of south wall (left of doorway)
+                if (position.x < -3) {
+                    wall.material = southWallLeftMaterial;
+                    console.log(`Wall ${index} identified as South wall LEFT section, applied texture with repeatX=${this.wallTextureSettings.southWallLeft.repeatX}, repeatY=${this.wallTextureSettings.southWallLeft.repeatY}`);
+                }
+                // Right section of south wall (right of doorway)
+                else if (position.x > 0) {
+                    wall.material = southWallRightMaterial;
+                    console.log(`Wall ${index} identified as South wall RIGHT section, applied texture with repeatX=${this.wallTextureSettings.southWallRight.repeatX}, repeatY=${this.wallTextureSettings.southWallRight.repeatY}`);
+                }
+                // Top section of south wall (above doorway)
+                else {
+                    wall.material = southWallTopMaterial;
+                    console.log(`Wall ${index} identified as South wall TOP section, applied texture with repeatX=${this.wallTextureSettings.southWallTop.repeatX}, repeatY=${this.wallTextureSettings.southWallTop.repeatY}`);
+                }
+            }
+            // East wall (right) at x = 6, rotated 90 degrees
+            else if (Math.abs(position.x - 6) < 0.1 && Math.abs(rotation.y - Math.PI/2) < 0.1) {
+                wall.material = eastWallMaterial;
+                console.log(`Wall ${index} identified as East wall, applied texture with repeatX=${this.wallTextureSettings.eastWall.repeatX}, repeatY=${this.wallTextureSettings.eastWall.repeatY}`);
+            }
+            // West wall (left) at x = -6, rotated -90 degrees
+            else if (Math.abs(position.x + 6) < 0.1 && Math.abs(rotation.y + Math.PI/2) < 0.1) {
+                wall.material = westWallMaterial;
+                console.log(`Wall ${index} identified as West wall, applied texture with repeatX=${this.wallTextureSettings.westWall.repeatX}, repeatY=${this.wallTextureSettings.westWall.repeatY}`);
+            }
+            else {
+                console.log(`Wall ${index} at position (${position.x}, ${position.y}, ${position.z}) with rotation (${rotation.x}, ${rotation.y}, ${rotation.z}) not identified, using default material`);
+                // Use south wall left material as default for any unidentified wall sections
+                wall.material = southWallLeftMaterial;
+            }
+            
             // Force geometry normals recalculation
             wall.geometry.computeVertexNormals();
             wall.material.needsUpdate = true;
-            console.log(`Wall ${index} fixed with consistent material`);
         });
         
         console.log('Walls fixed with consistent materials and lighting');
+        console.log('To adjust texture tiling, modify this.wallTextureSettings and call this.fixWalls() again');
     });
 }
 
@@ -2144,13 +2488,53 @@ checkCollision(position, playerRadius = 0.6) { // Reduced from 1.0 to 0.6 for sm
         collision = true;
     }
     
-    // Check Z boundaries (front/back walls)
-    if (position.z < boundaryMinZ) {
-        adjustedPosition.z = boundaryMinZ;
-        collision = true;
-    } else if (position.z > boundaryMaxZ) {
-        adjustedPosition.z = boundaryMaxZ;
-        collision = true;
+    // Get hallway parameters for checking if player is in hallway
+    const doorWidth = 2.6;
+    const doorPositionX = -12/4; // Same as in createDoor()
+    const doorLeft = doorPositionX - doorWidth/2;
+    const doorRight = doorPositionX + doorWidth/2;
+    const hallwayMinZ = boundaryMaxZ; // Start of hallway is at the end of the arcade room
+    
+    // Determine if player is already in the hallway (beyond the south wall)
+    const isAlreadyInHallway = position.z > hallwayMinZ;
+    
+    // Check if player can enter or is already in the hallway
+    const canEnterHallway = this.door && this.door.userData.isOpen;
+    
+    // Determine if player is within doorway width
+    const isWithinDoorwayWidth = position.x >= doorLeft && position.x <= doorRight;
+    
+    // Player is considered in hallway if:
+    // 1. They're already beyond the south wall AND the door is open
+    // 2. OR they're passing through the doorway (within doorway width, beyond south wall, door open)
+    const isInHallway = (isAlreadyInHallway && canEnterHallway) &&
+                        // If they're just crossing the threshold, they must be within doorway width
+                        (position.z <= hallwayMinZ + 0.5 ? isWithinDoorwayWidth : true);
+    
+    // If player is in the hallway, use hallway collision detection
+    if (isInHallway) {
+        console.log(`Player in hallway, using hallway collision detection. Position: x=${position.x.toFixed(2)}, z=${position.z.toFixed(2)}, doorLeft=${doorLeft.toFixed(2)}, doorRight=${doorRight.toFixed(2)}`);
+        this.checkHallwayCollision(position, adjustedPosition, playerRadius);
+    } else {
+        // Normal arcade room collision detection
+        // Check Z boundaries (front/back walls)
+        if (position.z < boundaryMinZ) {
+            adjustedPosition.z = boundaryMinZ;
+            collision = true;
+        } else if (position.z > boundaryMaxZ) {
+            // Special case for doorway in south wall
+            
+            // If player is within the doorway width, allow them to pass through
+            if (isWithinDoorwayWidth && canEnterHallway) {
+                // Allow passage through doorway into hallway
+                console.log("Player passing through doorway");
+            } else {
+                // Normal wall collision - player is outside doorway or door is closed
+                adjustedPosition.z = boundaryMaxZ;
+                collision = true;
+                console.log("South wall collision - outside doorway or door closed");
+            }
+        }
     }
     
     // Check arcade machines with improved collision handling
@@ -2243,6 +2627,51 @@ if (this.barrelDecor) {
         adjustedPosition.z += Math.sin(angle) * pushDistance;
     }
 }
+
+    // Check door collision if door exists and is closed
+    if (this.door && !this.door.userData.isOpen) {
+        // Get the door's world position
+        const doorWorldPosition = new THREE.Vector3();
+        this.door.getWorldPosition(doorWorldPosition);
+        
+        // Door dimensions
+        const doorWidth = 2.6; // Updated to match the wider door
+        const doorHeight = 6.0; // Updated to match the taller door
+        const doorThickness = 0.1;
+        
+        // Calculate door boundaries
+        const doorMinX = doorWorldPosition.x - doorWidth/2 - playerRadius;
+        const doorMaxX = doorWorldPosition.x + doorWidth/2 + playerRadius;
+        const doorMinZ = doorWorldPosition.z - doorThickness/2 - playerRadius;
+        const doorMaxZ = doorWorldPosition.z + doorThickness/2 + playerRadius;
+        
+        // Check if position intersects with the door boundaries
+        if (adjustedPosition.x >= doorMinX && adjustedPosition.x <= doorMaxX &&
+            adjustedPosition.z >= doorMinZ && adjustedPosition.z <= doorMaxZ) {
+            
+            // Calculate distances to each boundary
+            const dLeft = Math.abs(adjustedPosition.x - doorMinX);
+            const dRight = Math.abs(adjustedPosition.x - doorMaxX);
+            const dFront = Math.abs(adjustedPosition.z - doorMinZ);
+            const dBack = Math.abs(adjustedPosition.z - doorMaxZ);
+            
+            // Find minimum distance
+            const minDist = Math.min(dLeft, dRight, dFront, dBack);
+            
+            // Push out in direction of minimum distance
+            if (minDist === dLeft) {
+                adjustedPosition.x = doorMinX;
+            } else if (minDist === dRight) {
+                adjustedPosition.x = doorMaxX;
+            } else if (minDist === dFront) {
+                adjustedPosition.z = doorMinZ;
+            } else {
+                adjustedPosition.z = doorMaxZ;
+            }
+            
+            collision = true;
+        }
+    }
 
     // Return the adjusted position
     return adjustedPosition;
@@ -2371,6 +2800,485 @@ const createWallDecor = (name, width, height, position, rotation) => {
     
     console.log('Wall decorations added');
 }
+
+/**
+ * Create a hallway extending from the doorway on the south wall
+ */
+createHallway() {
+    console.log('Creating hallway...');
+    
+    // Hallway dimensions
+    const hallwayWidth = 3.6; // Slightly wider than the door (which is now 2.6)
+    const hallwayLength = 30.0; // Increased from 10.0 to 30.0 (3x longer)
+    const hallwayHeight = 8.0; // Same as main room
+    
+    // Hallway position (aligned with door)
+    const doorPositionX = -12/4; // Same as in createDoor()
+    const doorPositionZ = 17.5; // South wall position
+    
+    // Create hallway group
+    this.hallway = new THREE.Group();
+    
+    // Store hallway properties for later use with lighting
+    this.hallwayProps = {
+        width: hallwayWidth,
+        length: hallwayLength,
+        height: hallwayHeight,
+        doorPositionX: doorPositionX,
+        doorPositionZ: doorPositionZ,
+        pointLights: [] // Will store references to point lights
+    };
+    
+    // Create floor
+    const floorGeometry = new THREE.PlaneGeometry(hallwayWidth, hallwayLength);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x333333, // Same as main room floor
+        roughness: 1,
+        metalness: 0
+    });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    floor.position.set(doorPositionX, 0, doorPositionZ + hallwayLength/2);
+    this.hallway.add(floor);
+    
+    // Create ceiling
+    const ceilingGeometry = new THREE.PlaneGeometry(hallwayWidth, hallwayLength);
+    const ceilingMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222222, // Same as main room ceiling
+        roughness: 1,
+        metalness: 0
+    });
+    const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+    ceiling.rotation.x = Math.PI / 2; // Rotate to be horizontal
+    ceiling.position.set(doorPositionX, hallwayHeight, doorPositionZ + hallwayLength/2);
+    this.hallway.add(ceiling);
+    
+    // Create walls
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222222, // Same as main room walls
+        roughness: 1,
+        metalness: 0
+    });
+    
+    // Store hallway walls for texture application
+    this.hallwayWalls = [];
+    
+    // Left wall
+    const leftWallGeometry = new THREE.BoxGeometry(0.2, hallwayHeight, hallwayLength);
+    const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+    leftWall.position.set(doorPositionX - hallwayWidth/2, hallwayHeight/2, doorPositionZ + hallwayLength/2);
+    leftWall.userData.isHallwayWall = true;
+    leftWall.userData.wallType = 'hallwayLeft';
+    this.hallway.add(leftWall);
+    this.hallwayWalls.push(leftWall);
+    
+    // Right wall
+    const rightWallGeometry = new THREE.BoxGeometry(0.2, hallwayHeight, hallwayLength);
+    const rightWall = new THREE.Mesh(rightWallGeometry, wallMaterial);
+    rightWall.position.set(doorPositionX + hallwayWidth/2, hallwayHeight/2, doorPositionZ + hallwayLength/2);
+    rightWall.userData.isHallwayWall = true;
+    rightWall.userData.wallType = 'hallwayRight';
+    this.hallway.add(rightWall);
+    this.hallwayWalls.push(rightWall);
+    
+    // End wall (with elevator door placeholder)
+    const endWallGeometry = new THREE.BoxGeometry(hallwayWidth, hallwayHeight, 0.2);
+    const endWall = new THREE.Mesh(endWallGeometry, wallMaterial);
+    endWall.position.set(doorPositionX, hallwayHeight/2, doorPositionZ + hallwayLength);
+    endWall.userData.isHallwayWall = true;
+    endWall.userData.wallType = 'hallwayEnd';
+    this.hallway.add(endWall);
+    this.hallwayWalls.push(endWall);
+    
+    // Create enhanced elevator door
+    console.log('Creating enhanced elevator door...');
+    
+    // Elevator dimensions - match entrance door height and make it wider
+    const elevatorWidth = 2.8;  // Wider than entrance door (2.6)
+    const elevatorHeight = 5.5; // Same as entrance door
+    const elevatorDepth = 0.1;  // Depth of the elevator door
+    const frameThickness = 0.15; // Thickness of the frame
+    const frameDepth = 0.2;     // How far the frame protrudes
+    
+    // Create elevator door group
+    const elevatorGroup = new THREE.Group();
+    elevatorGroup.position.set(doorPositionX, elevatorHeight/2, doorPositionZ + hallwayLength - 0.1);
+    
+    // Create matte material for the elevator doors (less reflective)
+    const elevatorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x888888,      // Light gray
+        roughness: 0.7,       // More rough/matte
+        metalness: 0.3,       // Less metallic
+        envMapIntensity: 0.3  // Less reflective
+    });
+    
+    // Create frame material (slightly darker than doors)
+    const frameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x666666,      // Darker gray
+        roughness: 0.6,       // More rough/matte
+        metalness: 0.4,       // Less metallic
+        envMapIntensity: 0.4  // Less reflective
+    });
+    
+    // Create left door panel
+    const leftDoorGeometry = new THREE.BoxGeometry(elevatorWidth/2 - 0.02, elevatorHeight, elevatorDepth);
+    const leftDoor = new THREE.Mesh(leftDoorGeometry, elevatorMaterial);
+    leftDoor.position.set(-elevatorWidth/4 - 0.01, 0, 0);
+    elevatorGroup.add(leftDoor);
+    
+    // Create right door panel
+    const rightDoorGeometry = new THREE.BoxGeometry(elevatorWidth/2 - 0.02, elevatorHeight, elevatorDepth);
+    const rightDoor = new THREE.Mesh(rightDoorGeometry, elevatorMaterial);
+    rightDoor.position.set(elevatorWidth/4 + 0.01, 0, 0);
+    elevatorGroup.add(rightDoor);
+    
+    // Create door frame (top, left, right)
+    // Top frame
+    const topFrameGeometry = new THREE.BoxGeometry(elevatorWidth + frameThickness*2, frameThickness, frameDepth);
+    const topFrame = new THREE.Mesh(topFrameGeometry, frameMaterial);
+    topFrame.position.set(0, elevatorHeight/2 + frameThickness/2, frameDepth/2 - 0.05);
+    elevatorGroup.add(topFrame);
+    
+    // Left frame
+    const leftFrameGeometry = new THREE.BoxGeometry(frameThickness, elevatorHeight, frameDepth);
+    const leftFrame = new THREE.Mesh(leftFrameGeometry, frameMaterial);
+    leftFrame.position.set(-elevatorWidth/2 - frameThickness/2, 0, frameDepth/2 - 0.05);
+    elevatorGroup.add(leftFrame);
+    
+    // Right frame
+    const rightFrameGeometry = new THREE.BoxGeometry(frameThickness, elevatorHeight, frameDepth);
+    const rightFrame = new THREE.Mesh(rightFrameGeometry, frameMaterial);
+    rightFrame.position.set(elevatorWidth/2 + frameThickness/2, 0, frameDepth/2 - 0.05);
+    elevatorGroup.add(rightFrame);
+    
+    // Add user data for interaction
+    elevatorGroup.userData = {
+        isElevator: true,
+        name: 'Elevator'
+    };
+    
+    // Add elevator group to hallway
+    this.hallway.add(elevatorGroup);
+    
+    // Create new triangle indicator above elevator
+    console.log('Creating triangle indicator...');
+    
+    // Create extruded triangle geometry for 3D effect - half the size
+    const triangleShape = new THREE.Shape();
+    triangleShape.moveTo(0, 0);
+    triangleShape.lineTo(0.4, 0); // Half width (was 0.8)
+    triangleShape.lineTo(0.2, 0.35); // Half height (was 0.7) and positive to point up
+    triangleShape.lineTo(0, 0);
+    
+    const extrudeSettings = {
+        steps: 1,
+        depth: 0.1, // Slightly thinner (was 0.2)
+        bevelEnabled: true,
+        bevelThickness: 0.03, // Smaller bevel (was 0.05)
+        bevelSize: 0.03, // Smaller bevel (was 0.05)
+        bevelSegments: 3
+    };
+    
+    const triangleGeometry = new THREE.ExtrudeGeometry(triangleShape, extrudeSettings);
+    
+    // Create bright red emissive material
+    const triangleMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF0000,
+        emissive: 0xFF0000,
+        emissiveIntensity: 1.0,
+        roughness: 0.3,
+        metalness: 0.5
+    });
+    
+    // Create the triangle mesh and add it to a group for easier manipulation
+    const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
+    
+    // Create a group to hold the triangle for easier positioning
+    this.triangleIndicator = new THREE.Group();
+    this.triangleIndicator.add(triangle);
+    
+    // Position and rotate the triangle group
+    // These are the values you can adjust to reposition the triangle:
+    // X position: doorPositionX (left/right)
+    // Y position: elevatorHeight + frameThickness + 0.3 (up/down)
+    // Z position: doorPositionZ + hallwayLength - 0.2 (forward/backward)
+    this.triangleIndicator.position.set(
+        doorPositionX + 0.2, // X position (left/right) - change this to move horizontally
+        elevatorHeight + frameThickness + 0.8, // Y position (up/down) - change this to move vertically
+        doorPositionZ + hallwayLength - 0.2 // Z position (forward/backward) - change this to move closer/further from wall
+    );
+    
+    // Rotate to face forward and flip upside down (point down)
+    this.triangleIndicator.rotation.x = Math.PI / 9; // Rotate to face forward
+    this.triangleIndicator.rotation.z = Math.PI; // Rotate 180 degrees to flip upside down
+    
+    // Add the triangle group to the hallway
+    this.hallway.add(this.triangleIndicator);
+    
+    console.log('Triangle indicator created. To reposition it, adjust:');
+    console.log('- X position (left/right): this.triangleIndicator.position.x');
+    console.log('- Y position (up/down): this.triangleIndicator.position.y');
+    console.log('- Z position (forward/backward): this.triangleIndicator.position.z');
+    
+    // Add an extra bright light above the elevator
+    const elevatorLight = new THREE.PointLight(0xFFFFFF, 1.5, 8); // Brighter light with longer range
+    elevatorLight.position.set(doorPositionX, hallwayHeight - 0.2, doorPositionZ + hallwayLength - 2);
+    this.hallway.add(elevatorLight);
+    
+    // Add some ceiling lights
+    const lightGeometry = new THREE.BoxGeometry(0.5, 0.1, 1.0);
+    const lightMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        emissive: 0xFFFFFF,
+        emissiveIntensity: 1.0
+    });
+    
+    // Add 9 ceiling lights along the hallway (3x more for the longer hallway)
+    for (let i = 0; i < 9; i++) {
+        const light = new THREE.Mesh(lightGeometry, lightMaterial);
+        light.position.set(doorPositionX, hallwayHeight - 0.1, doorPositionZ + 2 + i * 3);
+        this.hallway.add(light);
+        
+        // Add point light at each ceiling light
+        const pointLight = new THREE.PointLight(0xFFFFFF, 0.8, 5);
+        pointLight.position.set(doorPositionX, hallwayHeight - 0.2, doorPositionZ + 2 + i * 3);
+        this.hallway.add(pointLight);
+        
+        // Store reference to point light for later manipulation
+        this.hallwayProps.pointLights.push(pointLight);
+    }
+    
+    // Add to scene
+    this.scene.add(this.hallway);
+    
+    console.log('Hallway created');
+}
+
+
+
+/**
+ * Check collision with hallway walls
+ * @param {THREE.Vector3} position - The player's position
+ * @param {THREE.Vector3} adjustedPosition - The adjusted position after collision
+ * @param {number} playerRadius - The player's collision radius
+ */
+checkHallwayCollision(position, adjustedPosition, playerRadius) {
+    // Get hallway dimensions and position
+    const hallwayWidth = 3.6;
+    const hallwayLength = 30.0;
+    const doorPositionX = -12/4;
+    const doorPositionZ = 17.5;
+    
+    // Calculate hallway boundaries
+    const buffer = 0.05;
+    const hallwayMinX = doorPositionX - hallwayWidth/2 + playerRadius + buffer;
+    const hallwayMaxX = doorPositionX + hallwayWidth/2 - playerRadius - buffer;
+    const hallwayMinZ = doorPositionZ + buffer; // Entrance to hallway
+    const hallwayMaxZ = doorPositionZ + hallwayLength - playerRadius - buffer;
+    
+    // Check if the player is actually in the hallway (Z position beyond the arcade room)
+    const isInHallway = position.z > hallwayMinZ;
+    
+    // Only apply hallway collision if the player is actually in the hallway
+    if (isInHallway) {
+        console.log(`Player in hallway, applying hallway collision. Position: x=${position.x.toFixed(2)}, z=${position.z.toFixed(2)}`);
+        
+        // Check X boundaries (left/right walls of hallway)
+        if (position.x < hallwayMinX) {
+            adjustedPosition.x = hallwayMinX;
+            console.log("Hallway left wall collision");
+        } else if (position.x > hallwayMaxX) {
+            adjustedPosition.x = hallwayMaxX;
+            console.log("Hallway right wall collision");
+        }
+        
+        // Check Z boundary (end wall of hallway)
+        if (position.z > hallwayMaxZ) {
+            adjustedPosition.z = hallwayMaxZ;
+            console.log("Hallway end wall collision");
+        }
+    } else {
+        // Player is not in the hallway, don't apply hallway collision
+        console.log("Player not in hallway, skipping hallway collision");
+    }
+}
+
+/**
+ * Create a door on the left side of the south wall (behind spawn point) that can be opened
+ */
+createDoor() {
+    console.log('Creating door...');
+    
+    // Create a group to hold all door components
+    const doorGroup = new THREE.Group();
+    
+    // Door dimensions
+    const doorWidth = 2.6; // Increased from 2.0 to 2.6 (1.3x wider)
+    const doorHeight = 6.0; // Increased from 4.0 to 6.0 (1.5x taller)
+    const doorThickness = 0.1;
+    
+    // Door frame dimensions
+    const frameWidth = 0.2;
+    
+    // Create door panel with texture
+    const doorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorThickness);
+    const textureLoader = new THREE.TextureLoader();
+    const doorMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF, // White base color to show texture properly
+        roughness: 0.7,
+        metalness: 0.3,
+        side: THREE.DoubleSide // Make texture visible from both sides
+    });
+    
+    // Load and apply the door texture
+    textureLoader.load(
+        'assets/textures/hallwaydoor.jpg',
+        (texture) => {
+            doorMaterial.map = texture;
+            doorMaterial.needsUpdate = true;
+        },
+        undefined,
+        (error) => {
+            console.error('Error loading door texture:', error);
+        }
+    );
+    
+    const doorPanel = new THREE.Mesh(doorGeometry, doorMaterial);
+    
+    // Position door panel relative to its hinge
+    doorPanel.position.set(doorWidth/2, 0, 0);
+    
+    // Create door frame
+    // Top frame
+    const topFrameGeometry = new THREE.BoxGeometry(doorWidth + frameWidth*2, frameWidth, doorThickness + frameWidth*2);
+    const frameTopMesh = new THREE.Mesh(topFrameGeometry, doorMaterial);
+    frameTopMesh.position.set(0, doorHeight/2 + frameWidth/2, 0);
+    
+    // Bottom frame
+    const bottomFrameGeometry = new THREE.BoxGeometry(doorWidth + frameWidth*2, frameWidth, doorThickness + frameWidth*2);
+    const frameBottomMesh = new THREE.Mesh(bottomFrameGeometry, doorMaterial);
+    frameBottomMesh.position.set(0, -doorHeight/2 - frameWidth/2, 0);
+    
+    // Left frame - adjusted to not extend below the door
+    const leftFrameGeometry = new THREE.BoxGeometry(frameWidth, doorHeight + frameWidth, doorThickness + frameWidth*2);
+    const frameLeftMesh = new THREE.Mesh(leftFrameGeometry, doorMaterial);
+    frameLeftMesh.position.set(-doorWidth/2 - frameWidth/2, frameWidth/2, 0);
+    
+    // Right frame - adjusted to not extend below the door
+    const rightFrameGeometry = new THREE.BoxGeometry(frameWidth, doorHeight + frameWidth, doorThickness + frameWidth*2);
+    const frameRightMesh = new THREE.Mesh(rightFrameGeometry, doorMaterial);
+    frameRightMesh.position.set(doorWidth/2 + frameWidth/2, frameWidth/2, 0);
+    
+    // Create a pivot point for the door (hinge)
+    const hingePivot = new THREE.Group();
+    hingePivot.position.set(-doorWidth/2, 0, 0);
+    hingePivot.add(doorPanel);
+    
+    // Add all components to the door group
+    doorGroup.add(hingePivot);
+    doorGroup.add(frameTopMesh);
+    // Removed bottom frame as requested (was glitching with floor)
+    doorGroup.add(frameLeftMesh);
+    doorGroup.add(frameRightMesh);
+    
+    // Position the door on the left side of the south wall (behind spawn point)
+    // South wall is at z = 17.5
+    const wallWidth = 12; // From createArcadeRoom()
+    const doorPositionX = -wallWidth/4; // Center of left half of wall
+    const doorPositionY = doorHeight/2; // Half the door height for proper positioning
+    const doorPositionZ = 17.5 - doorThickness/2; // Just in front of south wall
+    
+    doorGroup.position.set(doorPositionX, doorPositionY, doorPositionZ);
+    
+    // Rotate the door to face the correct direction (inward)
+    doorGroup.rotation.y = Math.PI; // Rotate 180 degrees
+    
+    // Add custom userData for interaction
+    doorGroup.userData.isDoor = true;
+    doorGroup.userData.isOpen = false;
+    
+    // Store reference to the door and hinge
+    this.door = doorGroup;
+    this.doorHinge = hingePivot;
+    
+    // Add to scene
+    this.scene.add(doorGroup);
+    
+    console.log('Door created on south wall (behind spawn point)');
+}
+
+/**
+ * Open the door with an animation
+ */
+openDoor() {
+    // Check if door is already open
+    if (this.door.userData.isOpen) {
+        console.log('Door is already open');
+        return;
+    }
+    
+    console.log('Opening door...');
+    
+    // Play door opening sound
+    this.playSound('interaction'); // Using existing interaction sound for now
+    
+    // Show feedback
+    this.showInteractionFeedback('Door opening...');
+    
+    // Stop background music if it's playing
+    if (this.sounds.backgroundMusic && this.sounds.backgroundMusic.isPlaying) {
+        this.sounds.backgroundMusic.stop();
+        console.log('Background music stopped');
+    }
+    
+    // Animation duration
+    const duration = 1000; // 1 second
+    
+    // Starting rotation
+    const startRotation = this.doorHinge.rotation.y;
+    
+    // Target rotation (90 degrees in radians)
+    const targetRotation = Math.PI / 2;
+    
+    // Animation start time
+    const startTime = performance.now();
+    
+    // Animation function
+    const animateDoor = (currentTime) => {
+        // Calculate elapsed time
+        const elapsedTime = currentTime - startTime;
+        
+        // Calculate progress (0 to 1)
+        const progress = Math.min(elapsedTime / duration, 1);
+        
+        // Calculate current rotation using easing
+        const currentRotation = startRotation + (targetRotation - startRotation) * this.easeOutQuad(progress);
+        
+        // Apply rotation
+        this.doorHinge.rotation.y = currentRotation;
+        
+        // Continue animation if not complete
+        if (progress < 1) {
+            requestAnimationFrame(animateDoor);
+        } else {
+            // Animation complete
+            this.door.userData.isOpen = true;
+            console.log('Door opened');
+        }
+    };
+    
+    // Start animation
+    requestAnimationFrame(animateDoor);
+}
+
+/**
+ * Easing function for smoother animation
+ * @param {number} t - Progress value between 0 and 1
+ * @returns {number} - Eased value
+ */
+easeOutQuad(t) {
+    return t * (2 - t);
+}
   /**
  * Animation loop
  */
@@ -2462,7 +3370,7 @@ onKeyDown(event) {
                 this.playBackgroundMusic();
             }
         }
-    
+        
     
     if (event.code === 'Space' && !this.isJumping) {
         // Prevent default behavior (scrolling)
@@ -2521,8 +3429,14 @@ onKeyDown(event) {
             // Traverse up the parent chain to find interactive objects
             // (This is needed because often the mesh we hit is a child of the main object)
             while (currentObject && !foundInteractive) {
+                // Check if this is the door
+                if (currentObject.userData && currentObject.userData.isDoor) {
+                    console.log('Door activated!');
+                    this.openDoor();
+                    foundInteractive = true;
+                }
                 // See if this is the special portal machine
-if (currentObject.userData && currentObject.userData.isPortal) {
+                else if (currentObject.userData && currentObject.userData.isPortal) {
     console.log('Portal machine activated!');
     
     // Add visual feedback before redirecting
@@ -2604,6 +3518,22 @@ else if (currentObject.userData && currentObject.userData.isReturnPortal) {
     foundInteractive = true;
 }
 
+                // Check if this is the elevator
+                else if (currentObject.userData && currentObject.userData.isElevator) {
+                    console.log('Elevator activated!');
+                    
+                    // Add visual feedback
+                    this.showInteractionFeedback('Taking the elevator...');
+                    
+                    // Play elevator sound
+                    this.playSound('elevator');
+                    
+                    // Log the elevator interaction
+                    console.log('Elevator sound played');
+                    
+                    foundInteractive = true;
+                }
+                
                 // Check if this is a broken machine
                 else if (currentObject.userData && currentObject.userData.isBroken) {
                     console.log('This machine is broken!');

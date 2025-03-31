@@ -77,11 +77,15 @@
 <body>
     <!-- Container where the Three.js canvas will be inserted -->
     <div id="game-container"></div>
+    
+    <!-- Transition overlay for level changes -->
+    <div id="transition-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: black; opacity: 0; transition: opacity 1s ease; pointer-events: none; z-index: 1000;"></div>
+    
     <!-- Orientation overlay -->
-<div id="orientation-overlay">
-    <img src="assets/images/rotate-device.png" alt="Rotate Device">
-    <p>Please rotate your device to landscape mode for the best experience</p>
-</div>
+    <div id="orientation-overlay">
+        <img src="assets/images/rotate-device.png" alt="Rotate Device">
+        <p>Please rotate your device to landscape mode for the best experience</p>
+    </div>
 
     
     <!-- Add frogger.js before app.js -->
