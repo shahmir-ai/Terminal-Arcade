@@ -45,7 +45,7 @@ class CorridorLevel {
 
         this.lastFootstepTime = 0;     // Tracks when the last footstep sound played
 
-        this.footstepInterval = 400;   // Milliseconds between footstep sounds
+        this.footstepInterval = 450;   // Milliseconds between footstep sounds
 
 
 
@@ -156,7 +156,7 @@ class CorridorLevel {
         const corridorLength = 150;
 
         // --- Texture References (defined early, assigned by loader) ---
-        let floorTexture, ceilingTexture, wallTexture;
+        let floorTexture, ceilingTexture, wallTexture, southWallTexture; // Added southWallTexture
 
         // Define what happens AFTER all textures are loaded
         loadingManager.onLoad = () => {
@@ -206,16 +206,26 @@ class CorridorLevel {
                 metalness: 0.2
             });
 
-            // Material for End/South Walls
-            const endWallTexture = wallTexture.clone();
-            endWallTexture.needsUpdate = true;
-            // Ensure wrap modes are set on clone
-            endWallTexture.wrapS = THREE.RepeatWrapping;
-            endWallTexture.wrapT = THREE.RepeatWrapping;
-            endWallTexture.repeat.set(corridorWidth / wallRepeatLengthFactor, corridorHeight / wallRepeatHeightFactor);
-            const endWallMaterial = new THREE.MeshStandardMaterial({
-                map: endWallTexture,
+            // Material for Far End Wall (using general wall texture)
+            const farEndWallTexture = wallTexture.clone(); // Renamed from endWallTexture
+            farEndWallTexture.needsUpdate = true;
+            farEndWallTexture.wrapS = THREE.RepeatWrapping;
+            farEndWallTexture.wrapT = THREE.RepeatWrapping;
+            farEndWallTexture.repeat.set(corridorWidth / wallRepeatLengthFactor, corridorHeight / wallRepeatHeightFactor);
+            const farEndWallMaterial = new THREE.MeshStandardMaterial({ // Renamed from endWallMaterial
+                map: farEndWallTexture,
                 roughness: 0.8,
+                metalness: 0.2
+            });
+
+            // Material for South Wall (using specific texture)
+            // Ensure southWallTexture is configured (it should be loaded by now)
+            southWallTexture.wrapS = THREE.RepeatWrapping;
+            southWallTexture.wrapT = THREE.RepeatWrapping;
+            southWallTexture.repeat.set(2,3); // Adjust repeat factors for south wall
+            const southWallMaterial = new THREE.MeshStandardMaterial({
+                map: southWallTexture, // Use the specific south wall texture
+                roughness: 0.8, // Keep same material properties for now
                 metalness: 0.2
             });
 
@@ -254,14 +264,14 @@ class CorridorLevel {
             
             // End wall
             const endWallGeometry = new THREE.PlaneGeometry(corridorWidth, corridorHeight);
-            const endWall = new THREE.Mesh(endWallGeometry, endWallMaterial);
+            const endWall = new THREE.Mesh(endWallGeometry, farEndWallMaterial); // Use farEndWallMaterial
             endWall.position.set(0, corridorHeight / 2, -corridorLength);
             this.scene.add(endWall);
             this.corridorObjects.push(endWall);
 
             // Create South wall
             const southWallGeometry = new THREE.PlaneGeometry(corridorWidth, corridorHeight);
-            const southWall = new THREE.Mesh(southWallGeometry, endWallMaterial);
+            const southWall = new THREE.Mesh(southWallGeometry, southWallMaterial); // Use southWallMaterial
             southWall.position.set(0, corridorHeight / 2, 0); // Move wall to z=0
             southWall.rotation.y = Math.PI;
             this.scene.add(southWall);
@@ -285,6 +295,7 @@ class CorridorLevel {
         floorTexture = textureLoader.load('assets/textures/c_floor.jpg');
         ceilingTexture = textureLoader.load('assets/textures/c_ceiling.jpg');
         wallTexture = textureLoader.load('assets/textures/c_walls.jpg');
+        southWallTexture = textureLoader.load('assets/textures/wall_arcade.jpg'); // Load the south wall texture
 
         // Note: The actual creation now happens inside loadingManager.onLoad
         console.log('Texture loading initiated. Geometry creation deferred until load completes.');
@@ -424,11 +435,7 @@ class CorridorLevel {
             }
         );
         
-        // 1. Door in the first zone (right wall)
-        // For side walls, we need width=doorWidth, height=doorHeight, depth=doorDepth
-        const firstDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
-        
-        // Create materials array for the box - order: right, left, top, bottom, front, back
+        // Create materials array for the right wall doors - order: right, left, top, bottom, front, back
         const rightWallDoorMaterials = [
             edgeMaterial,     // right
             edgeMaterial,     // left
@@ -437,6 +444,21 @@ class CorridorLevel {
             doorMaterial,     // front (facing into corridor)
             edgeMaterial      // back (facing into wall)
         ];
+
+        // Create materials array for the left wall doors - order: right, left, top, bottom, front, back
+        const leftWallDoorMaterials = [
+            edgeMaterial,     // right
+            edgeMaterial,     // left
+            edgeMaterial,     // top
+            edgeMaterial,     // bottom
+            doorMaterial,     // front (facing into corridor after rotation)
+            edgeMaterial      // back (facing into wall)
+        ];
+        
+        
+        // 1. Door in the first zone (right wall)
+        // For side walls, we need width=doorWidth, height=doorHeight, depth=doorDepth
+        const firstDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
         
         const firstDoor = new THREE.Mesh(firstDoorGeometry, rightWallDoorMaterials);
         
@@ -457,19 +479,57 @@ class CorridorLevel {
         
         this.scene.add(firstDoor);
         this.doorways.push(firstDoor);
+        // --- NEW DOORS in Last Third (Before existing Doors 2 & 3) ---
+
+        // New Left Wall Doors (IDs 5, 6, 7)
+        const newLeftDoorPositions = [-132.5, -137]; // Removed first element to skip Door 5
+        for (let i = 0; i < newLeftDoorPositions.length; i++) {
+            const newLeftDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
+            const newLeftDoor = new THREE.Mesh(newLeftDoorGeometry, leftWallDoorMaterials); // Use existing materials
+            const zPos = newLeftDoorPositions[i];
+            const doorIdNum = 6 + i; // Start IDs from 6
+
+            newLeftDoor.rotation.y = Math.PI / 2; // Rotate to face inward (left wall)
+            newLeftDoor.position.set(-corridorWidth / 2 + doorDepth / 2, doorHeight / 2, zPos);
+
+            newLeftDoor.userData = {
+                isDoor: true,
+                doorId: `corridor-door-${doorIdNum}`,
+                name: `Corridor Door ${doorIdNum}`,
+                message: `Open corridor door ${doorIdNum}`
+            };
+
+            this.scene.add(newLeftDoor);
+            this.doorways.push(newLeftDoor);
+        }
+
+        // New Right Wall Doors (IDs 8, 9, 10)
+        const newRightDoorPositions = [-132.5, -137]; // Removed first element to skip Door 8
+        for (let i = 0; i < newRightDoorPositions.length; i++) {
+            const newRightDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
+            const newRightDoor = new THREE.Mesh(newRightDoorGeometry, rightWallDoorMaterials); // Use existing materials
+            const zPos = newRightDoorPositions[i];
+            const doorIdNum = 9 + i; // Start IDs from 9
+
+            newRightDoor.rotation.y = -Math.PI / 2; // Rotate to face inward (right wall)
+            newRightDoor.position.set(corridorWidth / 2 - doorDepth / 2, doorHeight / 2, zPos);
+
+            newRightDoor.userData = {
+                isDoor: true,
+                doorId: `corridor-door-${doorIdNum}`,
+                name: `Corridor Door ${doorIdNum}`,
+                message: `Open corridor door ${doorIdNum}`
+            };
+
+            this.scene.add(newRightDoor);
+            this.doorways.push(newRightDoor);
+        }
+
+        // --- End of NEW DOORS ---
+        
         
         // 2. Door on left wall in the last zone
         const leftDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
-        
-        // Create materials array for the box - order: right, left, top, bottom, front, back
-        const leftWallDoorMaterials = [
-            edgeMaterial,     // right
-            edgeMaterial,     // left
-            edgeMaterial,     // top
-            edgeMaterial,     // bottom
-            doorMaterial,     // front (facing into corridor after rotation)
-            edgeMaterial      // back (facing into wall)
-        ];
         
         const leftDoor = new THREE.Mesh(leftDoorGeometry, leftWallDoorMaterials);
         

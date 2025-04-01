@@ -28,6 +28,8 @@ class ArcadeApp {
         
         // Game state
         this.isLoading = true;
+        this.doorLocked = true; // Door starts locked
+        this.doorInteractionAttempts = 0; // Counter for 'E' presses on locked door
         
         // Bind methods to this context
         this.animate = this.animate.bind(this);
@@ -69,7 +71,7 @@ this.backgroundMusic = null;
 this.musicVolume = 0.09; // Default music volume (12%)
 this.soundVolume = 0.45; // Default sound effects volume (45%)
 this.lastFootstepTime = 0;     // Tracks when the last footstep sound played
-this.footstepInterval = 400;   // Milliseconds between footstep sounds
+this.footstepInterval = 450;   // Milliseconds between footstep sounds
 this.audioInitialized = false;
  
 // Font for neon sign
@@ -79,8 +81,16 @@ this.neonFont = null;
 this.levelManager = null;
 this.currentLevel = 'arcade'; // Start in arcade level
 this.transitionOverlay = document.getElementById('transition-overlay');
-this.controlsDisabled = false; // Flag to disable controls during transitions
-this.isElevatorActivated = false; // Flag to prevent multiple elevator activations
+        this.controlsDisabled = false; // Flag to disable controls during transitions
+        this.isElevatorActivated = false; // Flag to prevent multiple elevator activations
+
+        // Door lock properties
+        this.doorLocked = true; // Door starts locked
+        this.doorInteractionAttempts = 0; // Counter for 'E' presses on locked door
+
+        // Konami code properties
+        this.konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+        this.konamiCodeProgress = 0;
     }
     init() {
         console.log('Initializing Vibe Arcade...');
@@ -240,6 +250,8 @@ loadAudio() {
     loadSound('elevator', 'assets/sounds/elevator.mp3');
     loadSound('gameOver', 'assets/sounds/game_over.mp3');
     loadSound('footstep', 'assets/sounds/footstep.mp3');
+    loadSound('doorLocked', 'assets/sounds/door_locked.mp3'); // Sound for trying the locked door
+    loadSound('doorOpen', 'assets/sounds/door_open.mp3'); // Ensure door open sound is loaded if not already
 
 }
 
@@ -3229,10 +3241,10 @@ openDoor() {
     console.log('Opening door...');
     
     // Play door opening sound
-    this.playSound('interaction'); // Using existing interaction sound for now
+    this.playSound('doorOpen');    // Play the door opening sound
     
     // Show feedback
-    this.showInteractionFeedback('Door opening...');
+    this.showInteractionFeedback('...');
     
     // Stop background music if it's playing
     if (this.sounds.backgroundMusic && this.sounds.backgroundMusic.isPlaying) {
@@ -3241,7 +3253,7 @@ openDoor() {
     }
     
     // Animation duration
-    const duration = 1000; // 1 second
+    const duration = 2000; // 2 seconds (slower opening)
     
     // Starting rotation
     const startRotation = this.doorHinge.rotation.y;
@@ -3368,7 +3380,39 @@ if (this.returnPortal) {
  * @param {KeyboardEvent} event - The keyboard event
  */
 onKeyDown(event) {
-    // Store the state of this key as pressed
+    // Prevent default browser actions for movement, jump, and Konami keys
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyB'].includes(event.code)) {
+        event.preventDefault();
+    }
+
+    // --- Konami Code Check ---
+    if (this.doorLocked) {
+        const expectedKey = this.konamiCode[this.konamiCodeProgress];
+        if (event.code === expectedKey) {
+            this.konamiCodeProgress++;
+            console.log(`Konami progress: ${this.konamiCodeProgress}/${this.konamiCode.length}`);
+            if (this.konamiCodeProgress === this.konamiCode.length) {
+                console.log("Konami Code Entered! Door Unlocked.");
+                this.doorLocked = false;
+                this.konamiCodeProgress = 0; // Reset
+                this.showInteractionFeedback("UNLOCKED");
+                // No sound on unlock itself
+            }
+        } else if (event.code === this.konamiCode[0]) {
+            // If they press the first key again, restart
+            this.konamiCodeProgress = 1;
+            console.log("Konami sequence reset to step 1.");
+        } else {
+            // Wrong key, reset progress if they had started
+            if (this.konamiCodeProgress > 0) {
+                console.log("Konami sequence broken.");
+                this.konamiCodeProgress = 0;
+            }
+        }
+    }
+    // --- End Konami Code Check ---
+
+    // Store the state of this key as pressed (AFTER Konami check)
     this.keyStates[event.code] = true;
 
         // Start audio on first key press for portal users
@@ -3445,9 +3489,27 @@ onKeyDown(event) {
             while (currentObject && !foundInteractive) {
                 // Check if this is the door
                 if (currentObject.userData && currentObject.userData.isDoor) {
-                    console.log('Door activated!');
-                    this.openDoor();
-                    foundInteractive = true;
+                    console.log('Door interaction detected.');
+                    if (this.doorLocked) {
+                        // --- Handle Locked Door ---
+                        this.doorInteractionAttempts++;
+                        console.log(`Locked door interaction attempts: ${this.doorInteractionAttempts}`);
+                        this.showInteractionFeedback("LOCKED");
+                        this.playSound('doorLocked'); // Play locked sound
+
+                        if (this.doorInteractionAttempts >= 9) {
+                            console.log("Door unlocked after 9 attempts.");
+                            this.doorLocked = false;
+                            this.showInteractionFeedback("UNLOCKED"); // Optional feedback
+                            // No sound on unlock itself
+                        }
+                    } else {
+                        // --- Handle Unlocked Door ---
+                        console.log('Door is unlocked. Opening...');
+                        this.openDoor(); // Open the door if unlocked
+                        // door_open sound is handled within openDoor()
+                    }
+                    foundInteractive = true; // Mark interaction happened with the door
                 }
                 // See if this is the special portal machine
                 else if (currentObject.userData && currentObject.userData.isPortal) {
@@ -3669,6 +3731,8 @@ showInteractionFeedback(message, isGameOver = false) {
         feedbackElement.style.color = '#FF0000'; // Red for game over
     } else if (message === 'NO GOING BACK') {
         feedbackElement.style.color = '#FF0000'; // Red for "No going back" message
+    } else if (message === 'LOCKED') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Locked" message
     } else {
         feedbackElement.style.color = '#00FF00'; // Green for normal messages
     }
