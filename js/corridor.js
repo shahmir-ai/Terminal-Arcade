@@ -48,22 +48,30 @@ class CorridorLevel {
         this.footstepInterval = 450;   // Milliseconds between footstep sounds
 
 
+// Font for labels
+this.labelFont = null;
 
-        // Bind methods to this context
-        this.handleMovement = this.handleMovement.bind(this);
-        this.checkCollision = this.checkCollision.bind(this);
-        this.update = this.update.bind(this);
-        this.onKeyDown = this.onKeyDown.bind(this);
-        this.updateFogEffect = this.updateFogEffect.bind(this);
-        this.updateLightFlicker = this.updateLightFlicker.bind(this);
+// Bind methods to this context
+this.handleMovement = this.handleMovement.bind(this);
+this.checkCollision = this.checkCollision.bind(this);
+this.update = this.update.bind(this);
+this.onKeyDown = this.onKeyDown.bind(this);
+this.updateFogEffect = this.updateFogEffect.bind(this);
+this.updateLightFlicker = this.updateLightFlicker.bind(this);
+this.createTextLabel = this.createTextLabel.bind(this);
+this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
+        this.createTextLabel = this.createTextLabel.bind(this); // Bind new method
     }
     
     /**
-     * Initialize the corridor level
+     * Initialize the corridor level (async because of font loading)
      */
-    init() {
+    async init() { // Make init async
         console.log('Initializing corridor level...');
-        
+
+        // Load the font needed for labels first
+        await this.loadLabelFont();
+
         // Clear the scene (should already be done by the level manager)
         this.clearScene();
         
@@ -100,7 +108,35 @@ class CorridorLevel {
         // Return a reference to this level
         return this;
     }
-    
+
+   /**
+    * Load the font for door labels
+    */
+   async loadLabelFont() {
+       return new Promise((resolve, reject) => {
+           if (this.labelFont) {
+               console.log('Label font already loaded.');
+               resolve(this.labelFont);
+               return;
+           }
+           console.log('Loading label font (hallway.typeface.json)...');
+           const loader = new THREE.FontLoader();
+           loader.load(
+               'assets/fonts/hallway.typeface.json',
+               (font) => {
+                   console.log('Label font loaded successfully.');
+                   this.labelFont = font;
+                   resolve(font);
+               },
+               undefined, // Progress callback (optional)
+               (error) => {
+                   console.error('Error loading label font:', error);
+                   reject(error);
+               }
+           );
+       });
+   }
+
     /**
      * Clear the scene of all objects
      */
@@ -479,6 +515,8 @@ class CorridorLevel {
         
         this.scene.add(firstDoor);
         this.doorways.push(firstDoor);
+        // Add label for Door 1
+        this.createTextLabel("LEAVE NOW", firstDoor.position, firstDoor.rotation.y, doorHeight / 2 + 0.3, 0.1);
         // --- NEW DOORS in Last Third (Before existing Doors 2 & 3) ---
 
         // New Left Wall Doors (IDs 5, 6, 7)
@@ -501,6 +539,9 @@ class CorridorLevel {
 
             this.scene.add(newLeftDoor);
             this.doorways.push(newLeftDoor);
+            // Add labels for Doors 6 & 7
+            const labelTextLeft = doorIdNum === 6 ? "PAC MAN" : "SPACE INVADERS";
+            this.createTextLabel(labelTextLeft, newLeftDoor.position, newLeftDoor.rotation.y, doorHeight / 2 + 0.3, 0.1); // Use positive offset
         }
 
         // New Right Wall Doors (IDs 8, 9, 10)
@@ -523,6 +564,9 @@ class CorridorLevel {
 
             this.scene.add(newRightDoor);
             this.doorways.push(newRightDoor);
+             // Add labels for Doors 9 & 10
+            const labelTextRight = doorIdNum === 9 ? "FROGGER" : "SNAKE";
+            this.createTextLabel(labelTextRight, newRightDoor.position, newRightDoor.rotation.y, doorHeight / 2 + 0.3, 0.1);
         }
 
         // --- End of NEW DOORS ---
@@ -550,6 +594,8 @@ class CorridorLevel {
         
         this.scene.add(leftDoor);
         this.doorways.push(leftDoor);
+        // Add label for Door 2
+        this.createTextLabel("PONG", leftDoor.position, leftDoor.rotation.y, doorHeight / 2 + 0.3, 0.1); // Use positive offset
         
         // 3. Door on right wall in the last zone
         const rightDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
@@ -572,6 +618,8 @@ class CorridorLevel {
         
         this.scene.add(rightDoor);
         this.doorways.push(rightDoor);
+        // Add label for Door 3
+        this.createTextLabel("ASTEROIDS", rightDoor.position, rightDoor.rotation.y, doorHeight / 2 + 0.3, 0.1);
         
         // 4. Door at the end wall
         const endDoorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, doorDepth);
@@ -601,10 +649,63 @@ class CorridorLevel {
         
         this.scene.add(endDoor);
         this.doorways.push(endDoor);
+        // Add label for Door 4
+        this.createTextLabel("???", endDoor.position, endDoor.rotation.y, doorHeight / 2 + 0.3, 0.1);
         
         console.log(`Created ${this.doorways.length} doorways for three-zone corridor`);
     }
-    
+
+    /**
+     * Creates a 3D text label above a door.
+     * @param {string} text - The text content for the label.
+     * @param {THREE.Vector3} position - The base position (usually the door's position).
+     * @param {number} rotationY - The Y rotation for the text.
+     * @param {number} yOffset - Vertical offset above the door center.
+     * @param {number} depthOffset - Offset away from the wall.
+     */
+    createTextLabel(text, position, rotationY, yOffset = 0.5, depthOffset = 0.1) {
+        if (!this.labelFont) { // Check for the locally loaded labelFont
+            console.error('Neon font not loaded in app, cannot create text label:', text);
+            // Fallback: maybe create simple geometry? Or just skip.
+            return;
+        }
+
+        const textGeometry = new THREE.TextGeometry(text, {
+            font: this.labelFont, // Use the locally loaded labelFont
+            size: 0.2,   // Adjust size as needed
+            height: 0.001, // Make text flat
+            curveSegments: 4, // Lower segments for performance
+            bevelEnabled: false
+        });
+
+        // Center the geometry
+        textGeometry.computeBoundingBox();
+        const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+        textGeometry.translate(-textWidth / 2, 0, 0);
+
+        // Simple black material
+        const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+        // Calculate position above the door center
+        const labelPosition = position.clone();
+        labelPosition.y += yOffset; // Position it above the door's vertical center
+
+        // Apply depth offset based on rotation to push it slightly off the wall
+        const offsetVector = new THREE.Vector3(0, 0, depthOffset);
+        const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotationY);
+        offsetVector.applyQuaternion(rotationQuaternion);
+        labelPosition.add(offsetVector);
+
+
+        textMesh.position.copy(labelPosition);
+        textMesh.rotation.y = rotationY;
+
+        this.scene.add(textMesh);
+        this.corridorObjects.push(textMesh); // Add to objects for potential cleanup
+    }
+
     /**
      * Create an elevator on the south wall
      */
@@ -795,24 +896,167 @@ class CorridorLevel {
                     }
                     // Check if this is a door
                     else if (currentObject.userData && currentObject.userData.isDoor) {
-                        console.log(`Door activated: ${currentObject.userData.name}`);
-                        
-                        // Stop event propagation to prevent the app.js handler from being called
-                        event.stopPropagation();
-                        
-                        // Show custom message for this door
-                        const message = currentObject.userData.message || `Interacting with ${currentObject.userData.name}`;
-                        this.app.showInteractionFeedback(message, false);
-                        
-                        // Play door sound if available
-                        if (this.app.sounds['interaction']) {
-                            this.app.sounds['interaction'].play();
+                        // Check if it's the specific door for the Pac-Man level
+                        if (currentObject.userData.doorId === 'corridor-door-6') {
+                            console.log(`Door 6 activated: Entering Pac-Man level`);
+                            
+                            // Stop event propagation
+                            event.stopPropagation();
+                            
+                            // Show entry message
+                            this.app.showInteractionFeedback("Entering Pac-Man, good luck...");
+                            
+                            // Transition to the real_pacman level
+                            this.app.transitionToLevel('real_pacman');
+                            
+                            // Prevent default behavior
+                            event.preventDefault();
+                            
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-1') {
+                            // Door 1: Redirect to Google
+                            console.log('Interacting with Door 1 (Redirect)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show GOODBYE message
+                            this.app.showInteractionFeedback('GOODBYE');
+
+                            // Redirect after a short delay to allow message to be seen
+                            setTimeout(() => {
+                                window.location.href = 'https://google.com';
+                            }, 500); // 500ms delay
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-7') {
+                            // Door 7: Real Space Invaders (Placeholder)
+                            console.log('Interacting with Door 7 (Space Invaders Placeholder)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show entry message
+                            this.app.showInteractionFeedback('Entering Space Invaders, good luck...');
+
+                            // Transition to the real_space_invaders level
+                            this.app.transitionToLevel('real_space_invaders');
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-2') {
+                            // Door 2: Real Pong (Placeholder)
+                            console.log('Interacting with Door 2 (Pong Placeholder)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show entry message
+                            this.app.showInteractionFeedback('Entering Pong, good luck...');
+
+                            // Transition to the real_pong level
+                            this.app.transitionToLevel('real_pong');
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-3') {
+                            // Door 3: Real Asteroids (Placeholder)
+                            console.log('Interacting with Door 3 (Asteroids Placeholder)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show entry message
+                            this.app.showInteractionFeedback('Entering Asteroids, good luck...');
+
+                            // Transition to the real_asteroids level
+                            this.app.transitionToLevel('real_asteroids');
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-10') {
+                            // Door 10: Real Snake (Placeholder)
+                            console.log('Interacting with Door 10 (Snake Placeholder)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show entry message
+                            this.app.showInteractionFeedback('Entering Snake, good luck...');
+
+                            // Transition to the real_snake level
+                            this.app.transitionToLevel('real_snake');
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-9') {
+                            // Door 9: Real Frogger (Placeholder)
+                            console.log('Interacting with Door 9 (Frogger Placeholder)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show entry message
+                            this.app.showInteractionFeedback('Entering Frogger, good luck...');
+
+                            // Transition to the real_frogger level
+                            this.app.transitionToLevel('real_frogger');
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else if (currentObject.userData.doorId === 'corridor-door-4') {
+                            // Door 4: Final Room (Locked)
+                            console.log('Interacting with Door 4 (Final Room - Currently Locked)');
+
+                            // Stop event propagation
+                            event.stopPropagation();
+
+                            // Show LOCKED message
+                            this.app.showInteractionFeedback('YOU MUST SURVIVE THRICE TO ENTER');
+
+                            // Play locked sound
+                             if (this.app && typeof this.app.playSound === 'function') {
+                                this.app.playSound('doorLocked');
+                            }
+
+                            // Prevent default behavior
+                            event.preventDefault();
+
+                            foundInteractive = true;
+                        } else {
+                            // Original logic for other doors
+                            console.log(`Door activated: ${currentObject.userData.name}`);
+                            
+                            // Stop event propagation to prevent the app.js handler from being called
+                            event.stopPropagation();
+                            
+                            // Show custom message for this door
+                            const message = currentObject.userData.message || `Interacting with ${currentObject.userData.name}`;
+                            this.app.showInteractionFeedback(message, false);
+                            
+                            // Play door sound if available (using interaction sound for now)
+                            if (this.app.sounds['interaction']) {
+                                this.app.sounds['interaction'].play();
+                            }
+                            
+                            // Prevent default behavior
+                            event.preventDefault();
+                            
+                            foundInteractive = true;
                         }
-                        
-                        // Prevent default behavior
-                        event.preventDefault();
-                        
-                        foundInteractive = true;
                     }
                     
                     // Move up to the parent object

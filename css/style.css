@@ -78,3 +78,16 @@ body {
     z-index: 1000;
     pointer-events: none; /* Allows clicks to pass through */
 }
+/* Mini-map Canvas Styling */
+#minimap-canvas {
+    display: none; /* Initially hidden */
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    width: 200px; /* Fixed width */
+    height: 191px; /* Adjusted height for 21x20 maze aspect ratio (20/21 * 200) */
+    background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
+    border: 2px solid #444; /* Border */
+    z-index: 1001; /* Above transition overlay */
+    image-rendering: pixelated; /* Keep pixels sharp */
+}

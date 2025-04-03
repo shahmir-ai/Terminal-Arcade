@@ -91,6 +91,7 @@ this.transitionOverlay = document.getElementById('transition-overlay');
         // Konami code properties
         this.konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
         this.konamiCodeProgress = 0;
+        this.lastFrameTime = 0; // For deltaTime calculation
     }
     init() {
         console.log('Initializing Vibe Arcade...');
@@ -3304,60 +3305,81 @@ easeOutQuad(t) {
  * Animation loop
  */
 animate() {
-    
     const now = performance.now();
+    // Removed deltaTime calculation - not needed if movement is level-specific
+    this.lastFrameTime = now; // Keep updating lastFrameTime for FPS counter
 
     requestAnimationFrame(this.animate);
-    
-    // If we're in the arcade level, handle arcade-specific updates
+
+    // Handle level-specific updates and movement
     if (this.currentLevel === 'arcade') {
-        this.handleMovement();
+        // Arcade level handles its own movement and updates
+        this.handleMovement(); // Call the main movement handler
         this.updateAnimatedScreens();
+    } else if (this.currentLevel === 'corridor' && this.levelManager?.corridorLevel?.update) {
+        // Corridor level handles its own movement via its update function
+        this.levelManager.corridorLevel.update(); // Pass no deltaTime
+    } else if (this.currentLevel === 'real_pacman' && this.levelManager?.realPacmanLevel?.update) {
+        // Real Pacman level will handle its own movement via its update function
+        this.levelManager.realPacmanLevel.update(); // Pass no deltaTime
+    } else if (this.currentLevel === 'real_space_invaders' && this.levelManager?.realSpaceInvadersLevel?.update) {
+        // Real Space Invaders level handles its own movement via its update function
+        this.levelManager.realSpaceInvadersLevel.update();
+    } else if (this.currentLevel === 'real_pong' && this.levelManager?.realPongLevel?.update) {
+        // Real Pong level handles its own movement via its update function
+        this.levelManager.realPongLevel.update();
+    } else if (this.currentLevel === 'real_asteroids' && this.levelManager?.realAsteroidsLevel?.update) {
+        // Real Asteroids level handles its own movement via its update function
+        this.levelManager.realAsteroidsLevel.update();
+    } else if (this.currentLevel === 'real_snake' && this.levelManager?.realSnakeLevel?.update) {
+        // Real Snake level handles its own movement via its update function
+        this.levelManager.realSnakeLevel.update();
+    } else if (this.currentLevel === 'real_frogger' && this.levelManager?.realFroggerLevel?.update) {
+        // Real Frogger level handles its own movement via its update function
+        this.levelManager.realFroggerLevel.update();
+    } else if (this.currentLevel === 'final_room' && this.levelManager?.finalRoomLevel?.update) {
+        // Final Room level handles its own movement via its update function
+        this.levelManager.finalRoomLevel.update();
     }
-    // If we're in the corridor level, update it
-    else if (this.currentLevel === 'corridor' && this.levelManager && this.levelManager.corridorLevel) {
-        this.levelManager.corridorLevel.update();
-    }
-    
+    // Removed extra closing brace here
+
     // Update FPS counter
     this.updateFpsCounter(now);
 
-
-    // Update controls if they exist
+    // Update controls if they exist (OrbitControls for debugging)
     if (this.controls) {
         this.controls.update();
     }
 
     // Animate portal if it exists
-if (this.returnPortal) {
-    // Rotate the ring slowly
-    if (this.portalRing) {
-        this.portalRing.rotation.z += this.portalRotationSpeed;
-    }
-    
-    // Animate particles
-    if (this.portalParticles) {
-        const positions = this.portalParticles.geometry.attributes.position.array;
-        const particleCount = positions.length / 3;
-        
-        for (let i = 0; i < particleCount; i++) {
-            // Move particles in a gentle floating pattern
-            positions[i * 3 + 2] = Math.sin((now / 1000) + i * 0.1) * 0.1;
-            
-            // Occasionally move particles inward/outward
-            if (Math.random() < 0.01) {
-                const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
-                const radius = Math.random() * 1.3;
-                positions[i * 3] = Math.cos(angle) * radius;
-                positions[i * 3 + 1] = Math.sin(angle) * radius;
-            }
+    if (this.returnPortal) {
+        // Rotate the ring slowly
+        if (this.portalRing) {
+            this.portalRing.rotation.z += this.portalRotationSpeed;
         }
-        
-        this.portalParticles.geometry.attributes.position.needsUpdate = true;
-    }
-}
 
-    
+        // Animate particles
+        if (this.portalParticles) {
+            const positions = this.portalParticles.geometry.attributes.position.array;
+            const particleCount = positions.length / 3;
+
+            for (let i = 0; i < particleCount; i++) {
+                // Move particles in a gentle floating pattern
+                positions[i * 3 + 2] = Math.sin((now / 1000) + i * 0.1) * 0.1;
+
+                // Occasionally move particles inward/outward
+                if (Math.random() < 0.01) {
+                    const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
+                    const radius = Math.random() * 1.3;
+                    positions[i * 3] = Math.cos(angle) * radius;
+                    positions[i * 3 + 1] = Math.sin(angle) * radius;
+                }
+            }
+
+            this.portalParticles.geometry.attributes.position.needsUpdate = true;
+        }
+    }
+
     // Render the scene
     this.renderer.render(this.scene, this.camera);
 }
@@ -3380,10 +3402,28 @@ if (this.returnPortal) {
  * @param {KeyboardEvent} event - The keyboard event
  */
 onKeyDown(event) {
+    // --- Input Focus & Control Disable Check ---
+    // Ignore game keybinds if controls are disabled OR if typing in an input field
+    if (this.controlsDisabled ||
+        (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA'))) {
+        // Allow default behavior for input fields (like typing letters)
+        // but prevent further game logic processing in this handler.
+        // Exception: Allow Enter key specifically for the username input submission.
+        if (!(document.activeElement.id === 'username-input' && event.code === 'Enter')) {
+             console.log('Input focus or controls disabled, ignoring game keydown:', event.code);
+             return;
+        }
+         // If it IS the Enter key on the username input, let it fall through to potentially submit.
+    }
+    // --- End Check ---
+
+
     // Prevent default browser actions for movement, jump, and Konami keys
+    // Moved this *after* the input focus check so default typing isn't prevented.
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyB'].includes(event.code)) {
         event.preventDefault();
     }
+
 
     // --- Konami Code Check ---
     if (this.doorLocked) {
@@ -3733,6 +3773,10 @@ showInteractionFeedback(message, isGameOver = false) {
         feedbackElement.style.color = '#FF0000'; // Red for "No going back" message
     } else if (message === 'LOCKED') {
         feedbackElement.style.color = '#FF0000'; // Red for "Locked" message
+    } else if (message === 'YOU MUST SURVIVE THRICE TO ENTER') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
+    } else if (message === 'OUT OF ORDER') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
     } else {
         feedbackElement.style.color = '#00FF00'; // Green for normal messages
     }
@@ -5734,6 +5778,7 @@ initLevelManager() {
     this.levelManager = {
         app: this,
         corridorLevel: null,
+        realPacmanLevel: null, // Add placeholder for the new level instance
         
         // Load the corridor level
         loadCorridorLevel: async () => {
@@ -5884,12 +5929,199 @@ async transitionToLevel(levelName) {
         
         // Load corridor level
         const corridorLevel = await this.levelManager.loadCorridorLevel();
-        corridorLevel.init();
+        await corridorLevel.init(); // Await async init for font loading
         
         // Update current level
         this.currentLevel = 'corridor';
-    }
-    else if (levelName === 'arcade') {
+    } else if (levelName === 'real_pacman') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to real_pacman from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the real_pacman.js script if not already loaded
+        if (typeof window.RealPacmanLevel === 'undefined') {
+            await this.loadScript('js/real_pacman.js');
+        }
+
+        // Create the RealPacmanLevel instance if it doesn't exist
+        if (!this.levelManager.realPacmanLevel) {
+            this.levelManager.realPacmanLevel = new RealPacmanLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.realPacmanLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'real_pacman';
+
+    } else if (levelName === 'real_space_invaders') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to real_space_invaders from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the real_space_invaders.js script if not already loaded
+        if (typeof window.RealSpaceInvadersLevel === 'undefined') {
+            await this.loadScript('js/real_space_invaders.js');
+        }
+
+        // Create the RealSpaceInvadersLevel instance if it doesn't exist
+        // Store it in levelManager for potential future reference/unloading
+        if (!this.levelManager.realSpaceInvadersLevel) { // Use a unique property name
+            this.levelManager.realSpaceInvadersLevel = new RealSpaceInvadersLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.realSpaceInvadersLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'real_space_invaders';
+
+    } else if (levelName === 'real_pong') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to real_pong from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the real_pong.js script if not already loaded
+        if (typeof window.RealPongLevel === 'undefined') {
+            await this.loadScript('js/real_pong.js');
+        }
+
+        // Create the RealPongLevel instance if it doesn't exist
+        // Store it in levelManager for potential future reference/unloading
+        if (!this.levelManager.realPongLevel) { // Use a unique property name
+            this.levelManager.realPongLevel = new RealPongLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.realPongLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'real_pong';
+
+    } else if (levelName === 'real_asteroids') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to real_asteroids from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the real_asteroids.js script if not already loaded
+        if (typeof window.RealAsteroidsLevel === 'undefined') {
+            await this.loadScript('js/real_asteroids.js');
+        }
+
+        // Create the RealAsteroidsLevel instance if it doesn't exist
+        // Store it in levelManager for potential future reference/unloading
+        if (!this.levelManager.realAsteroidsLevel) { // Use a unique property name
+            this.levelManager.realAsteroidsLevel = new RealAsteroidsLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.realAsteroidsLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'real_asteroids';
+
+    } else if (levelName === 'real_snake') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to real_snake from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the real_snake.js script if not already loaded
+        if (typeof window.RealSnakeLevel === 'undefined') {
+            await this.loadScript('js/real_snake.js');
+        }
+
+        // Create the RealSnakeLevel instance if it doesn't exist
+        // Store it in levelManager for potential future reference/unloading
+        if (!this.levelManager.realSnakeLevel) { // Use a unique property name
+            this.levelManager.realSnakeLevel = new RealSnakeLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.realSnakeLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'real_snake';
+
+    } else if (levelName === 'real_frogger') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to real_frogger from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the real_frogger.js script if not already loaded
+        if (typeof window.RealFroggerLevel === 'undefined') {
+            await this.loadScript('js/real_frogger.js');
+        }
+
+        // Create the RealFroggerLevel instance if it doesn't exist
+        // Store it in levelManager for potential future reference/unloading
+        if (!this.levelManager.realFroggerLevel) { // Use a unique property name
+            this.levelManager.realFroggerLevel = new RealFroggerLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.realFroggerLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'real_frogger';
+
+    } else if (levelName === 'final_room') {
+        // Unload the current level (assuming it's the corridor)
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            this.levelManager.corridorLevel.unload();
+            console.log('Corridor level unloaded.');
+        } else {
+            console.warn(`Attempting to transition to final_room from unexpected level: ${this.currentLevel}`);
+            // Add unloading logic for other potential source levels if needed
+        }
+
+        // Load the final_room.js script if not already loaded
+        if (typeof window.FinalRoomLevel === 'undefined') {
+            await this.loadScript('js/final_room.js');
+        }
+
+        // Create the FinalRoomLevel instance if it doesn't exist
+        // Store it in levelManager for potential future reference/unloading
+        if (!this.levelManager.finalRoomLevel) { // Use a unique property name
+            this.levelManager.finalRoomLevel = new FinalRoomLevel(this);
+        }
+
+        // Initialize the level
+        this.levelManager.finalRoomLevel.init();
+
+        // Update current level state
+        this.currentLevel = 'final_room';
+
+    } else if (levelName === 'arcade') {
         // This would handle transitioning back to the arcade level
         // Not implemented as per requirements (one-way transition only)
         console.warn('Transition back to arcade level not implemented');
@@ -5907,7 +6139,7 @@ async transitionToLevel(levelName) {
 /**
  * Handle continuous movement and rotation based on currently pressed keys
  */
-handleMovement() {
+handleMovement() { // Removed deltaTime parameter
         // Don't process movement when in a mini-game or controls are disabled
         if (this.currentMiniGame || this.controlsDisabled) {
             return;
@@ -5928,7 +6160,7 @@ handleMovement() {
     // Calculate the right vector for strafing
     const rightVector = new THREE.Vector3(0, 1, 0).cross(movementDirection).normalize();
     
-    // Get the movement distance for this frame
+    // Get the movement distance for this frame (original fixed value)
     const moveDistance = this.moveSpeed;
     
     // Store current y position to preserve height
@@ -5961,12 +6193,26 @@ handleMovement() {
     
     // Only check collisions if we're actually moving
     if (positionChanged) {
-        // Get collision-adjusted position
-        const adjustedPosition = this.checkCollision(newPosition);
+        let adjustedPosition;
+        // Dynamically call the correct collision check based on the current level
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            adjustedPosition = this.levelManager.corridorLevel.checkCollision(newPosition);
+        } else if (this.currentLevel === 'real_pacman' && this.levelManager.realPacmanLevel) {
+            adjustedPosition = this.levelManager.realPacmanLevel.checkCollision(newPosition);
+        } else {
+            // Default to the original arcade collision check
+            adjustedPosition = this.checkCollision(newPosition);
+        }
         
         // Update camera position
         this.camera.position.copy(adjustedPosition);
-        this.camera.position.y = currentY; // Maintain height
+        // Ensure Y position is maintained correctly after collision adjustment,
+        // unless jumping/falling logic needs to override it (handled elsewhere).
+        // We might need to revisit how Y position is handled during collision.
+        // For now, let's assume collision functions handle Y appropriately or we restore it.
+        // Re-applying currentY might negate vertical collision adjustments.
+        // Let's trust the collision functions for now.
+        // this.camera.position.y = currentY; // Commenting this out - let collision logic decide Y
         
         // Update controls target
         if (this.controls) {
