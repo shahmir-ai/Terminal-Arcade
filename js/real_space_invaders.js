@@ -116,7 +116,7 @@ class RealSpaceInvadersLevel {
         this.scene.fog = null; // No fog in this simple room
 
         // Reset camera position and rotation for room start
-        this.camera.position.set(0, this.groundLevel, 7); // Start in center
+        this.camera.position.set(0, this.groundLevel, 14); // Start in center
         this.camera.rotation.set(0, 0, 0); // Reset rotation
         this.verticalRotation = 0; // Reset vertical look angle
         this.camera.lookAt(0, this.groundLevel, -1); // Look towards negative Z
@@ -417,23 +417,34 @@ class RealSpaceInvadersLevel {
                     
                     console.log(`Enemy destroyed! Row: ${enemy.row}, Column: ${enemy.col}`);
 
-                    // --- BEGIN WIN CONDITION CHECK ---
-                    const remainingEnemies = this.enemies.filter(e => e.alive).length;
-                    console.log(`Remaining enemies: ${remainingEnemies}`);
-                    if (remainingEnemies === 0 && !this.levelComplete && !this.isGameOver) {
-                        this.levelComplete = true;
-                        console.log("Level Complete: All Enemies Defeated!");
-                        if (this.app) {
-                            this.app.disableControls();
-                            this.app.showInteractionFeedback('YOU WIN!', false); // Use app's feedback (false for win style)
-                            this.app.playSound('levelWin', 0.7); // Placeholder - needs a win sound
-                            setTimeout(() => {
-                                if (this.app) this.app.transitionToLevel('corridor'); // Transition back after delay
-                            }, 2500); // 2.5 second delay
-                        }
+
+// --- BEGIN WIN CONDITION CHECK ---
+const remainingEnemies = this.enemies.filter(e => e.alive).length;
+console.log(`Remaining enemies: ${remainingEnemies}`);
+if (remainingEnemies === 0 && !this.levelComplete && !this.isGameOver) {
+    this.levelComplete = true;
+    console.log("Level Complete: All Enemies Defeated!");
+    if (this.app) {
+        this.app.disableControls();
+        this.app.showInteractionFeedback('YOU WIN!', false); // Use app's feedback (false for win style)
+        this.app.playSound('levelWin', 0.7); // Placeholder - needs a win sound
+        setTimeout(() => {
+            if (this.app) {
+                this.app.transitionToLevel('corridor', {
+                    isRespawn: true,
+                    gameResult: {
+                        result: 'win',
+                        game: 'real_space_invaders',
+                        doorId: 'corridor-door-7' // This matches the door ID in corridor.js
                     }
-                    // --- END WIN CONDITION CHECK ---
-// Removed duplicated win condition check block
+                });
+            }
+        }, 2500); // 2.5 second delay
+    }
+}
+// --- END WIN CONDITION CHECK ---
+
+                    // Removed duplicated win condition check block
 // Removed stray closing braces below
                     
                     // Remove bullet
@@ -521,33 +532,34 @@ class RealSpaceInvadersLevel {
             const distanceToPlayer = bullet.mesh.position.distanceTo(this.camera.position);
             if (distanceToPlayer < 0.7) { // Player hitbox (adjust as needed)
                 // Player hit!
-                // --- BEGIN LOSE CONDITION ---
-                if (!this.isGameOver && !this.levelComplete) { // Prevent triggering multiple times
-                    this.isGameOver = true;
-                    console.log("Game Over: Player Hit!");
-                    if (this.app) {
-                        this.app.disableControls();
-                        this.app.showInteractionFeedback('YOU GOT HIT', true); // Use app's feedback (true for game over style)
-                        this.app.playSound('gameOver', 0.7); // Use existing game over sound
-                        setTimeout(() => {
-                            if (this.app) this.app.transitionToLevel('corridor'); // Transition back after delay
-                        }, 2000); // 2 second delay
+
+// --- BEGIN LOSE CONDITION ---
+if (!this.isGameOver && !this.levelComplete) { // Prevent triggering multiple times
+    this.isGameOver = true;
+    console.log("Game Over: Player Hit!");
+    if (this.app) {
+        this.app.disableControls();
+        this.app.showInteractionFeedback('YOU GOT HIT', true); // Use app's feedback (true for game over style)
+        this.app.playSound('gameOver', 0.7); // Use existing game over sound
+        setTimeout(() => {
+            if (this.app) {
+                this.app.transitionToLevel('corridor', {
+                    isRespawn: true,
+                    gameResult: {
+                        result: 'loss',
+                        game: 'real_space_invaders',
+                        doorId: 'corridor-door-7' // This matches the door ID in corridor.js
                     }
-                }
-                // --- END LOSE CONDITION ---
-                if (!this.isGameOver && !this.levelComplete) { // Prevent triggering multiple times
-                    this.isGameOver = true;
-                    console.log("Game Over: Player Hit!");
-                    if (this.app) {
-                        this.app.disableControls();
-                        this.app.showInteractionFeedback('YOU GOT HIT', true); // Use app's feedback (true for game over style)
-                        this.app.playSound('gameOver', 0.7); // Use existing game over sound
-                        setTimeout(() => {
-                            this.app.transitionToLevel('corridor'); // Transition back after delay
-                        }, 2000); // 2 second delay
-                    }
-                }
-                
+                });
+            }
+        }, 2000); // 2 second delay
+    }
+}
+// --- END LOSE CONDITION ---
+
+
+
+
                 // Remove bullet
                 this.scene.remove(bullet.mesh);
                 bullet.mesh.geometry.dispose();

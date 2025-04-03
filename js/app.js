@@ -3424,6 +3424,7 @@ onKeyDown(event) {
         event.preventDefault();
     }
 
+   
 
     // --- Konami Code Check ---
     if (this.doorLocked) {
@@ -5915,12 +5916,19 @@ enableControls() {
 /**
  * Transition to a different level
  * @param {string} levelName - Name of the level to transition to
+ * @param {Object} options - Options for the level initialization
  */
-async transitionToLevel(levelName) {
+async transitionToLevel(levelName, options = {}) {
     console.log(`Transitioning to ${levelName} level...`);
     
     // Fade to black
     await this.fadeToBlack();
+    
+    // If transitioning from a game level back to the corridor, set isRespawn flag
+    if (this.currentLevel !== 'arcade' && this.currentLevel !== 'corridor' && levelName === 'corridor') {
+        options.isRespawn = true;
+        console.log('Setting isRespawn flag for return to corridor from game level');
+    }
     
     // Handle transition based on target level
     if (levelName === 'corridor') {
@@ -5929,7 +5937,7 @@ async transitionToLevel(levelName) {
         
         // Load corridor level
         const corridorLevel = await this.levelManager.loadCorridorLevel();
-        await corridorLevel.init(); // Await async init for font loading
+        await corridorLevel.init(options); // Await async init for font loading
         
         // Update current level
         this.currentLevel = 'corridor';

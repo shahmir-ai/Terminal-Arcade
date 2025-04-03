@@ -789,12 +789,22 @@ recenterGhostInCorridor(ghostPosition) {
                          this.app.showInteractionFeedback("You survived... for now.");
                     }
 
-                    // Transition back to corridor after a short delay
-                    setTimeout(() => {
-                        if (this.app && typeof this.app.transitionToLevel === 'function') {
-                            this.app.transitionToLevel('corridor');
-                        }
-                    }, 2000); // 2-second delay
+                
+
+// Transition back to corridor after a short delay with win result
+setTimeout(() => {
+    if (this.app && typeof this.app.transitionToLevel === 'function') {
+        this.app.transitionToLevel('corridor', {
+            isRespawn: true,
+            gameResult: {
+                result: 'win',
+                game: 'real_pacman',
+                doorId: 'corridor-door-6' // This matches the door ID in corridor.js
+            }
+        });
+    }
+}, 2000); // 2-second delay
+
                 }
             }
         }
@@ -1595,12 +1605,20 @@ if (this.minimapCanvas) {
                     this.app.showInteractionFeedback("BOO!", true);
                 }
                 
-                // Return to corridor after a short delay
-                setTimeout(() => {
-                    if (this.app && typeof this.app.transitionToLevel === 'function') {
-                        this.app.transitionToLevel('corridor');
-                    }
-                }, 2000); // 2-second delay
+             // Return to corridor after a short delay with loss result
+setTimeout(() => {
+    if (this.app && typeof this.app.transitionToLevel === 'function') {
+        this.app.transitionToLevel('corridor', {
+            isRespawn: true,
+            gameResult: {
+                result: 'loss',
+                game: 'real_pacman',
+                doorId: 'corridor-door-6' // This matches the door ID in corridor.js
+            }
+        });
+    }
+}, 2000); // 2-second delay
+
                 
                 break; // Exit the loop once caught
             }

@@ -61,12 +61,46 @@ this.updateLightFlicker = this.updateLightFlicker.bind(this);
 this.createTextLabel = this.createTextLabel.bind(this);
 this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
         this.createTextLabel = this.createTextLabel.bind(this); // Bind new method
-    }
+
+        // Narrator message properties
+        this.narratorMessageQueue = [];
+        this.currentNarratorMessage = null;
+        this.isShowingNarratorMessage = false;
+        this.narratorMessageElement = null;
+        this.narratorMessageTimeout = null;
+        this.letterTypingInterval = null;
+        this.narratorInitiated = false;
+
+        // UI tracking properties
+        this.uiElementsCreated = false;
+        this.livesDisplay = null;
+        this.winCountDisplay = null;
+        this.playerLives = 5;
+        this.playerWins = 0;
+        this.requiredWins = 3;
+
+        // Game state tracking
+        this.completedDoors = {};
+
+// Game progress tracking
+this.doorGameStates = {
+    // Track which corridor door games have been completed and their result
+    'corridor-door-1': { playable: false }, // Not a game door
+    'corridor-door-2': { playable: true, played: false, result: null },
+    'corridor-door-3': { playable: true, played: false, result: null }, // Asteroids door
+    'corridor-door-4': { playable: false },  // Not a game door
+    'corridor-door-6': { playable: true, played: false, result: null }, // Pac Man
+    'corridor-door-7': { playable: true, played: false, result: null }, // Space Invaders
+    'corridor-door-9': { playable: true, played: false, result: null }, // Frogger
+    'corridor-door-10': { playable: true, played: false, result: null } // Snake
+};    }
     
     /**
      * Initialize the corridor level (async because of font loading)
+     * @param {Object} options - Options for initialization
+     * @param {boolean} options.isRespawn - Whether this is a respawn from a game
      */
-    async init() { // Make init async
+    async init(options = {}) { // Add options parameter with default empty object
         console.log('Initializing corridor level...');
 
         // Load the font needed for labels first
@@ -85,10 +119,106 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
         this.scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
         console.log('Added fog for three-zone visibility effect');
         
-        // Reset camera position
-        this.camera.position.set(0, this.groundLevel, -4);
-        this.camera.lookAt(0, this.groundLevel, -10);
+        // Define corridor dimensions
+        const corridorLength = 150;
+        const thirdLength = corridorLength / 3;
         
+        // Determine spawn position based on whether this is a respawn from a game
+        if (options.isRespawn) {
+            // Respawn in the middle of the third section (near the doors)
+            // Position player in the middle of the third section around z=-125
+            this.camera.position.set(0, this.groundLevel, -125);
+            this.camera.lookAt(0, this.groundLevel, -135); // Look further into the third section
+            console.log('Respawning player in the middle of the third section');
+        } else {
+            // Regular spawn at the corridor entrance
+            this.camera.position.set(0, this.groundLevel, -4);
+            this.camera.lookAt(0, this.groundLevel, -10);
+            console.log('Spawning player at corridor entrance');
+        }
+
+
+   // Handle respawn from game with result
+if (options.isRespawn && options.gameResult) {
+    console.log(`Respawning from game with result: ${options.gameResult.result} for door ${options.gameResult.doorId}`);
+    console.log('Current doorGameStates:', this.doorGameStates);
+    
+    // Check if doorId exists in doorGameStates
+    if (options.gameResult.doorId) {
+        if (this.doorGameStates[options.gameResult.doorId]) {
+            console.log(`Found door state for ${options.gameResult.doorId}`);
+            this.doorGameStates[options.gameResult.doorId].played = true;
+            this.doorGameStates[options.gameResult.doorId].result = options.gameResult.result;
+       
+
+
+            // Update UI based on result
+            if (options.gameResult.result === 'win') {
+                this.playerWins++;
+                this.updateWinCountDisplay();
+                
+                // Check if player has won all required games
+                if (this.playerWins >= this.requiredWins) {
+                    // Give a moment for the win count display to update before triggering victory sequence
+                    setTimeout(() => {
+                        this.triggerVictorySequence();
+                    }, 1500);
+                    return; // Return early to skip the regular feedback
+                }
+                
+                // Store completion using doorId instead of game name
+                this.completedDoors[options.gameResult.doorId] = 'win';
+                setTimeout(() => {
+                    this.app.showInteractionFeedback('GAME COMPLETED!');
+                }, 1000);
+            }
+            
+            else if (options.gameResult.result === 'loss') {
+    this.playerLives--;
+    this.updateLivesDisplay();
+    
+    // Check if player has run out of lives
+    if (this.playerLives <= 0) {
+        // Give a moment for the lives display to update before triggering death sequence
+        setTimeout(() => {
+            this.triggerPermanentGameOver();
+        }, 1500);
+        return; // Return early to skip the regular feedback
+    }
+    
+    // Add this line to update completedDoors
+    this.completedDoors[options.gameResult.doorId] = 'loss';
+    setTimeout(() => {
+        this.app.showInteractionFeedback('GAME OVER!', true);
+    }, 1000);
+}
+
+        } else {
+            console.error(`Door state not found for ${options.gameResult.doorId}`);
+            
+            // Fallback - update UI directly
+            if (options.gameResult.result === 'win') {
+                this.playerWins++;
+                this.updateWinCountDisplay();
+                setTimeout(() => {
+                    this.app.showInteractionFeedback('GAME COMPLETED!');
+                }, 1000);
+            } else if (options.gameResult.result === 'loss') {
+                this.playerLives--;
+                this.updateLivesDisplay();
+                setTimeout(() => {
+                    this.app.showInteractionFeedback('GAME OVER!', true);
+                }, 1000);
+            }
+        }
+    }
+}
+
+
+
+
+
+
         // Create the corridor environment
         this.createCorridor();
         this.setupLighting();
@@ -104,6 +234,16 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
         }
         
         console.log('Corridor level initialized');
+        
+        // Set up narrator messages with a slight delay after initialization
+        // Only show if this is the first time the player has entered the corridor
+        // AND it's not a respawn
+        setTimeout(() => {
+            // Only trigger the sequence if the player hasn't seen it before and this isn't a respawn
+            if (!this.app.corridorNarratorShown && !options.isRespawn) {
+                this.initiateNarratorSequence();
+            }
+        }, 500); // Start 0.5 seconds after entering corridor
         
         // Return a reference to this level
         return this;
@@ -136,6 +276,223 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
            );
        });
    }
+
+
+
+
+/**
+ * Trigger permanent game over when all lives are lost
+ */
+triggerPermanentGameOver() {
+    console.log('Triggering permanent game over - all lives lost');
+    
+    // Disable all controls permanently
+    this.app.disableControls();
+    
+    // Create overlay for the fade effect
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+    overlay.style.transition = 'background-color 2s ease-in-out';
+    overlay.style.zIndex = '2000';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column'; // Allow stacking multiple messages
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    document.body.appendChild(overlay);
+    
+    // Create first message element
+    const message = document.createElement('div');
+    message.style.color = '#FF0000'; // Red text
+    message.style.fontFamily = "'Press Start 2P', monospace";
+    message.style.fontSize = '36px'; // Larger than the Asteroids message
+    message.style.opacity = '0';
+    message.style.transition = 'opacity 1s ease-in-out';
+    message.textContent = "YOU DIED";
+    overlay.appendChild(message);
+    
+    // Create second message element (added later)
+    const secondMessage = document.createElement('div');
+    secondMessage.style.color = '#FF0000'; // Red text
+    secondMessage.style.fontFamily = "'Press Start 2P', monospace";
+    secondMessage.style.fontSize = '24px';
+    secondMessage.style.marginTop = '40px';
+    secondMessage.style.opacity = '0';
+    secondMessage.style.transition = 'opacity 1s ease-in-out';
+    secondMessage.textContent = "GAME OVER. GO DO SOMETHING ELSE NOW.";
+    overlay.appendChild(secondMessage);
+    
+    // Remove any existing UI elements and interaction feedback
+    this.removeUIElements();
+    const existingFeedback = document.getElementById('interaction-feedback');
+    if (existingFeedback) {
+        existingFeedback.style.display = 'none';
+    }
+    
+    // Play game over sound
+    if (this.app && typeof this.app.playSound === 'function') {
+        setTimeout(() => {
+            this.app.playSound('gameOver');
+        }, 1000);
+    }
+    
+    // Fade to black
+    setTimeout(() => {
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        
+        // Show first message after fade completes
+        setTimeout(() => {
+            message.style.opacity = '1';
+            
+            // Show second message after 10 seconds
+            setTimeout(() => {
+                secondMessage.style.opacity = '1';
+            }, 10000);
+            
+        }, 2000);
+    }, 100);
+    
+    // Override keyboard handlers to prevent any key input from working
+    const blockAllKeys = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+    
+    // Add keydown listener to capture all keys
+    window.addEventListener('keydown', blockAllKeys, true);
+    
+    // Also disable mouse clicks
+    window.addEventListener('click', blockAllKeys, true);
+    
+    console.log('Game permanently over. All inputs disabled.');
+}
+
+/**
+ * Trigger victory sequence when all games are won
+ */
+triggerVictorySequence() {
+    console.log('Triggering victory sequence - all games completed');
+    
+    // Disable controls during the sequence
+    this.app.disableControls();
+    
+    // Create overlay for the fade effect
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+    overlay.style.transition = 'background-color 2s ease-in-out';
+    overlay.style.zIndex = '2000';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column'; // Allow stacking multiple messages
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    document.body.appendChild(overlay);
+    
+    // Create first message element
+    const message = document.createElement('div');
+    message.style.color = '#00FF00'; // Green text
+    message.style.fontFamily = "'Press Start 2P', monospace";
+    message.style.fontSize = '36px';
+    message.style.opacity = '0';
+    message.style.transition = 'opacity 1s ease-in-out';
+    message.textContent = "YOU SURVIVED";
+    overlay.appendChild(message);
+    
+    // Create second message element (added later)
+    const secondMessage = document.createElement('div');
+    secondMessage.style.color = '#00FF00'; // Green text
+    secondMessage.style.fontFamily = "'Press Start 2P', monospace";
+    secondMessage.style.fontSize = '24px';
+    secondMessage.style.marginTop = '40px';
+    secondMessage.style.opacity = '0';
+    secondMessage.style.transition = 'opacity 1s ease-in-out';
+    secondMessage.textContent = "YOU GOT SO FAR. BUT IN THE END...";
+    overlay.appendChild(secondMessage);
+    
+    // Create third message element (added even later)
+    const thirdMessage = document.createElement('div');
+    thirdMessage.style.color = '#00FF00'; // Green text
+    thirdMessage.style.fontFamily = "'Press Start 2P', monospace";
+    thirdMessage.style.fontSize = '24px';
+    thirdMessage.style.marginTop = '20px';
+    thirdMessage.style.opacity = '0';
+    thirdMessage.style.transition = 'opacity 1s ease-in-out';
+    thirdMessage.textContent = "DOES IT EVEN MATTER???";
+    overlay.appendChild(thirdMessage);
+    
+    // Remove UI elements and interaction feedback
+    this.removeUIElements();
+    const existingFeedback = document.getElementById('interaction-feedback');
+    if (existingFeedback) {
+        existingFeedback.style.display = 'none';
+    }
+    
+    // Play victory sound if available
+    if (this.app && typeof this.app.playSound === 'function') {
+        setTimeout(() => {
+            if (this.app.sounds['levelWin']) {
+                this.app.playSound('levelWin');
+            } else {
+                this.app.playSound('interaction');
+            }
+        }, 1000);
+    }
+    
+    // Fade to black
+    setTimeout(() => {
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        
+        // Show first message after fade completes
+        setTimeout(() => {
+            message.style.opacity = '1';
+            
+            // Show second message after 3 seconds
+            setTimeout(() => {
+                secondMessage.style.opacity = '1';
+                
+                // Show third message after another 3 seconds
+                setTimeout(() => {
+                    thirdMessage.style.opacity = '1';
+                    
+                    // Wait 5 more seconds then start transition back to arcade
+                    setTimeout(() => {
+                        // Start fade out
+                        message.style.opacity = '0';
+                        secondMessage.style.opacity = '0';
+                        thirdMessage.style.opacity = '0';
+                        
+                        // Fade back from black
+                        setTimeout(() => {
+                            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                            
+                           // Remove overlay and redirect to arcade website
+setTimeout(() => {
+    if (overlay.parentNode) {
+        document.body.removeChild(overlay);
+    }
+    
+    // Redirect to arcade.shahmir.ca
+    window.location.href = "https://arcade.shahmir.ca";
+    
+    console.log("Redirecting to arcade.shahmir.ca");
+}, 2000);
+                        }, 1000);
+                    }, 5000);
+                }, 3000);
+            }, 3000);
+        }, 2000);
+    }, 100);
+    
+    console.log('Victory sequence initiated. Will return to arcade afterwards.');
+}
 
     /**
      * Clear the scene of all objects
@@ -510,13 +867,15 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
             isDoor: true,
             doorId: 'corridor-door-1',
             name: 'Corridor Door 1',
-            message: 'Open corridor door 1'
+            message: 'Open corridor door 1',
+            url: 'https://www.youtube.com/watch?v=sJNK4VKeoBM',
+            confirmationCounter: 0 // Track number of interaction attempts
         };
         
         this.scene.add(firstDoor);
         this.doorways.push(firstDoor);
         // Add label for Door 1
-        this.createTextLabel("LEAVE NOW", firstDoor.position, firstDoor.rotation.y, doorHeight / 2 + 0.3, 0.1);
+        this.createTextLabel("LEAVE  NOW", firstDoor.position, firstDoor.rotation.y, doorHeight / 2 + 0.3, 0.1);
         // --- NEW DOORS in Last Third (Before existing Doors 2 & 3) ---
 
         // New Left Wall Doors (IDs 5, 6, 7)
@@ -896,8 +1255,76 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
                     }
                     // Check if this is a door
                     else if (currentObject.userData && currentObject.userData.isDoor) {
+                        // Store the door ID and game name for clarity
+                        const doorId = currentObject.userData.doorId;
+                        const gameName = currentObject.userData.gameName || doorId;
+                        
+                        console.log(`Interacting with door: ${doorId}, Game: ${gameName}`);
+                        
+                        // Check if this door has already been played
+                        if (this.completedDoors[gameName]) {
+                            const result = this.completedDoors[gameName];
+                            if (result === 'win') {
+                                this.app.showInteractionFeedback("YOU WON THIS GAME");
+                            } else if (result === 'loss') {
+                                this.app.showInteractionFeedback("YOU LOST THIS GAME");
+                            }
+                            foundInteractive = true;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            return;
+                        }
+                        
+                        // Special handling for Asteroids Door (door-3)
+                        if (currentObject.userData.doorId === 'corridor-door-3') {
+                            console.log('Interacting with Door 3 (Asteroids Door)');
+                            
+                            // IMPORTANT: immediately prevent propagation and default behavior
+                            event.preventDefault();
+                            event.stopPropagation();
+                            
+                            // Initialize interaction counter if it doesn't exist
+                            if (typeof currentObject.userData.asteroidsDoorCounter === 'undefined') {
+                                currentObject.userData.asteroidsDoorCounter = 0;
+                            }
+                            
+                            // Increment the interaction counter (use door-specific counter)
+                            currentObject.userData.asteroidsDoorCounter++;
+                            
+                            // Show different messages based on interaction count
+                            if (currentObject.userData.asteroidsDoorCounter === 1) {
+                                // First interaction - Warning
+                                this.app.showInteractionFeedback("WARNING: You will suffocate in outer space.");
+                            } 
+                            else if (currentObject.userData.asteroidsDoorCounter === 2) {
+                                // Second interaction - Stronger warning
+                                this.app.showInteractionFeedback("Don't. You will die.");
+                            } 
+                            else if (currentObject.userData.asteroidsDoorCounter >= 3) {
+                                // Third interaction - Show final message BEFORE starting death sequence
+                                this.app.showInteractionFeedback("Suit yourself.");
+                                
+                                // Reset counter for next time
+                                currentObject.userData.asteroidsDoorCounter = 0;
+                                
+                                // Mark this door as completed with loss result
+                                this.completedDoors[gameName] = 'loss';
+                                
+                                // Add a slight delay to show message before starting death sequence
+                                setTimeout(() => {
+                                    // Start the death sequence
+                                    this.startAsteroidsDoorDeathSequence();
+                                    
+                                    // Reduce player lives
+                                    this.playerLives--;
+                                    this.updateLivesDisplay();
+                                }, 1200);
+                            }
+
+                            foundInteractive = true;
+                        } 
                         // Check if it's the specific door for the Pac-Man level
-                        if (currentObject.userData.doorId === 'corridor-door-6') {
+                        else if (currentObject.userData.doorId === 'corridor-door-6') {
                             console.log(`Door 6 activated: Entering Pac-Man level`);
                             
                             // Stop event propagation
@@ -914,19 +1341,36 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
                             
                             foundInteractive = true;
                         } else if (currentObject.userData.doorId === 'corridor-door-1') {
-                            // Door 1: Redirect to Google
+                            // Door 1: Multi-step confirmation before redirecting to Google
                             console.log('Interacting with Door 1 (Redirect)');
 
+                            // Initialize confirmation counter if it doesn't exist
+                            if (typeof currentObject.userData.confirmationCounter === 'undefined') {
+                                currentObject.userData.confirmationCounter = 0;
+                            }
+                            
+                            // Increment confirmation counter
+                            currentObject.userData.confirmationCounter++;
+                            
                             // Stop event propagation
                             event.stopPropagation();
 
-                            // Show GOODBYE message
-                            this.app.showInteractionFeedback('GOODBYE');
-
-                            // Redirect after a short delay to allow message to be seen
-                            setTimeout(() => {
-                                window.location.href = 'https://google.com';
-                            }, 500); // 500ms delay
+                            // Show different messages based on confirmation counter
+                            if (currentObject.userData.confirmationCounter === 1) {
+                                // First interaction
+                                this.app.showInteractionFeedback("Too scared to stay?");
+                            } else if (currentObject.userData.confirmationCounter === 2) {
+                                // Second interaction
+                                this.app.showInteractionFeedback("Are you sure you want to leave?");
+                            } else if (currentObject.userData.confirmationCounter >= 3) {
+                                // Third interaction - proceed with redirection
+                                this.app.showInteractionFeedback("Goodbye!");
+                                
+                                // Redirect after a delay to show the message
+                                setTimeout(() => {
+                                    window.location.href = currentObject.userData.url || 'https://google.com';
+                                }, 1500);
+                            }
 
                             // Prevent default behavior
                             event.preventDefault();
@@ -961,23 +1405,6 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
 
                             // Transition to the real_pong level
                             this.app.transitionToLevel('real_pong');
-
-                            // Prevent default behavior
-                            event.preventDefault();
-
-                            foundInteractive = true;
-                        } else if (currentObject.userData.doorId === 'corridor-door-3') {
-                            // Door 3: Real Asteroids (Placeholder)
-                            console.log('Interacting with Door 3 (Asteroids Placeholder)');
-
-                            // Stop event propagation
-                            event.stopPropagation();
-
-                            // Show entry message
-                            this.app.showInteractionFeedback('Entering Asteroids, good luck...');
-
-                            // Transition to the real_asteroids level
-                            this.app.transitionToLevel('real_asteroids');
 
                             // Prevent default behavior
                             event.preventDefault();
@@ -1064,6 +1491,85 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
                 }
             }
         }
+    }
+    
+    /**
+     * Start the death sequence for the Asteroids door (suffocation in space)
+     */
+    startAsteroidsDoorDeathSequence() {
+        console.log('Starting death sequence for Asteroids door');
+        
+        // Disable controls during the sequence
+        this.app.disableControls();
+        
+        // Create overlay for the fade effect
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+        overlay.style.transition = 'background-color 2s ease-in-out';
+        overlay.style.zIndex = '2000';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        document.body.appendChild(overlay);
+        
+        // Create message element
+        const message = document.createElement('div');
+        message.style.color = 'white';
+        message.style.fontFamily = "'Press Start 2P', monospace";
+        message.style.fontSize = '24px';
+        message.style.opacity = '0';
+        message.style.transition = 'opacity 1s ease-in-out';
+        message.textContent = "You suffocated in outer space...";
+        overlay.appendChild(message);
+        
+        // Play game over sound
+        if (this.app && typeof this.app.playSound === 'function') {
+            setTimeout(() => {
+                this.app.playSound('gameOver');
+            }, 1000);
+        }
+        
+        // Remove any existing interaction feedback element to prevent conflict
+        const existingFeedback = document.getElementById('interaction-feedback');
+        if (existingFeedback) {
+            existingFeedback.style.display = 'none';
+        }
+        
+        // Fade to black
+        setTimeout(() => {
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+            
+            // Show message after fade completes
+            setTimeout(() => {
+                message.style.opacity = '1';
+                
+                // Wait 5 seconds with black screen and message
+                setTimeout(() => {
+                    // Fade message out
+                    message.style.opacity = '0';
+                    
+                    // Fade back from black
+                    setTimeout(() => {
+                        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                        
+                        // Remove overlay after fade out completes
+                        setTimeout(() => {
+                            document.body.removeChild(overlay);
+                            
+                            // Re-enable controls
+                            this.app.enableControls();
+                            
+                            // Camera is already at appropriate position
+                        }, 2000);
+                    }, 1000);
+                }, 5000);
+            }, 2000);
+        }, 100);
     }
     
     /**
@@ -1286,6 +1792,9 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
         this.updateLightFlicker();
         
         // Any other updates specific to the corridor level
+
+        // Check if player has passed the midpoint of the corridor and show UI if needed
+        this.checkPositionForUI();
     }
     
     /**
@@ -1428,7 +1937,314 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
         this.corridorLights = [];
         this.doorways = [];
         
+        // Clean up narrator system
+        this.cleanupNarratorSystem();
+        
+        // Remove UI elements
+        this.removeUIElements();
+        
         console.log('Corridor level unloaded');
+    }
+
+    /**
+     * Start the sequence of narrator messages
+     */
+    initiateNarratorSequence() {
+        if (this.narratorInitiated) return; // Prevent duplicate triggering within this instance
+        this.narratorInitiated = true;
+        
+        // Set the persistent flag on the app to indicate this has been shown
+        this.app.corridorNarratorShown = true;
+        
+        // Queue the four messages (split the last message into two)
+        this.queueNarratorMessage("What? How did you get here?");
+        this.queueNarratorMessage("You're not supposed to be here.");
+        this.queueNarratorMessage("It would be best if you left.");
+        this.queueNarratorMessage("First door on your right, please.");
+        
+        // Start displaying messages
+        this.processNarratorMessageQueue();
+    }
+    
+    /**
+     * Add a message to the narrator queue
+     * @param {string} message - The message to display
+     */
+    queueNarratorMessage(message) {
+        this.narratorMessageQueue.push(message);
+    }
+    
+    /**
+     * Process the next message in the queue
+     */
+    processNarratorMessageQueue() {
+        // If we're already showing a message or the queue is empty, return
+        if (this.isShowingNarratorMessage || this.narratorMessageQueue.length === 0) {
+            return;
+        }
+        
+        // Get the next message and show it
+        const message = this.narratorMessageQueue.shift();
+        this.showNarratorMessage(message);
+    }
+    
+    /**
+     * Show a narrator message with typing animation
+     * @param {string} message - Message to display
+     */
+    showNarratorMessage(message) {
+        // Set flag that we're showing a message
+        this.isShowingNarratorMessage = true;
+        
+        // Create message element if it doesn't exist
+        if (!this.narratorMessageElement) {
+            this.narratorMessageElement = document.createElement('div');
+            this.narratorMessageElement.style.position = 'fixed';
+            this.narratorMessageElement.style.top = '50%';
+            this.narratorMessageElement.style.left = '50%';
+            this.narratorMessageElement.style.transform = 'translate(-50%, -50%)';
+            this.narratorMessageElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            this.narratorMessageElement.style.color = '#FFFFFF'; // White text
+            this.narratorMessageElement.style.padding = '12px 20px';
+            this.narratorMessageElement.style.borderRadius = '5px';
+            this.narratorMessageElement.style.fontFamily = "'Press Start 2P', monospace";
+            this.narratorMessageElement.style.fontSize = '16px';
+            this.narratorMessageElement.style.zIndex = '1500';
+            this.narratorMessageElement.style.textAlign = 'center';
+            this.narratorMessageElement.style.maxWidth = '80%';
+            this.narratorMessageElement.style.visibility = 'hidden'; // Start hidden
+            document.body.appendChild(this.narratorMessageElement);
+        }
+        
+        // Prepare for typing animation
+        this.narratorMessageElement.textContent = '';
+        this.narratorMessageElement.style.visibility = 'visible';
+        this.currentNarratorMessage = message;
+        this.currentLetterIndex = 0;
+        
+        // Start typing animation
+        this.typeNextLetter();
+    }
+    
+    /**
+     * Type the next letter in the current message
+     */
+    typeNextLetter() {
+        if (this.currentLetterIndex < this.currentNarratorMessage.length) {
+            // Add the next letter
+            this.narratorMessageElement.textContent += this.currentNarratorMessage.charAt(this.currentLetterIndex);
+            this.currentLetterIndex++;
+            
+            // Schedule the next letter
+            this.letterTypingInterval = setTimeout(() => {
+                this.typeNextLetter();
+            }, 20); // Typing speed - adjust as needed
+        } else {
+            // Typing complete, keep message visible for a while
+            this.narratorMessageTimeout = setTimeout(() => {
+                this.hideNarratorMessage();
+            }, 1000); // Keep complete message on screen for 1 second
+        }
+    }
+    
+    /**
+     * Hide the narrator message and process the next one if available
+     */
+    hideNarratorMessage() {
+        if (this.narratorMessageElement) {
+            this.narratorMessageElement.style.visibility = 'hidden';
+        }
+        
+        // Clear any pending timeouts
+        if (this.narratorMessageTimeout) {
+            clearTimeout(this.narratorMessageTimeout);
+            this.narratorMessageTimeout = null;
+        }
+        
+        if (this.letterTypingInterval) {
+            clearTimeout(this.letterTypingInterval);
+            this.letterTypingInterval = null;
+        }
+        
+        // Reset state
+        this.isShowingNarratorMessage = false;
+        this.currentNarratorMessage = null;
+        this.currentLetterIndex = 0;
+        
+        // Process the next message (if any) after a short delay
+        setTimeout(() => {
+            this.processNarratorMessageQueue();
+        }, 150); // Small delay between messages
+    }
+    
+    /**
+     * Clean up narrator message system
+     */
+    cleanupNarratorSystem() {
+        if (this.narratorMessageElement && this.narratorMessageElement.parentNode) {
+            this.narratorMessageElement.parentNode.removeChild(this.narratorMessageElement);
+        }
+        
+        if (this.narratorMessageTimeout) {
+            clearTimeout(this.narratorMessageTimeout);
+        }
+        
+        if (this.letterTypingInterval) {
+            clearTimeout(this.letterTypingInterval);
+        }
+        
+        this.narratorMessageElement = null;
+        this.narratorMessageQueue = [];
+        this.isShowingNarratorMessage = false;
+        this.currentNarratorMessage = null;
+    }
+
+    /**
+     * Check if player has passed the midpoint of the corridor and show UI if needed
+     */
+    checkPositionForUI() {
+        // Corridor length is 150 units, so midpoint is at z = -75
+        const midpointZ = -75;
+        
+        // If player has passed the midpoint and UI hasn't been created yet, create it
+        if (this.camera.position.z < midpointZ && !this.uiElementsCreated) {
+            this.createUIElements();
+            }
+    }
+    
+    /**
+     * Create UI elements for lives and win count
+     */
+    createUIElements() {
+        console.log('Creating lives and win count UI elements');
+        
+        // Don't create elements if they already exist
+        if (this.uiElementsCreated) {
+            console.log('UI elements already exist, skipping creation');
+            return;
+        }
+        
+        // Create the lives display
+        this.createLivesDisplay();
+        
+        // Create the win count display
+        this.createWinCountDisplay();
+        
+        // Mark UI elements as created
+        this.uiElementsCreated = true;
+    }
+    
+    /**
+     * Create the lives display showing 5 heart symbols
+     */
+    createLivesDisplay() {
+        // Create the container
+        const livesDisplay = document.createElement('div');
+        livesDisplay.id = 'lives-display';
+        livesDisplay.style.position = 'fixed';
+        livesDisplay.style.top = '100px'; // Position below FPS counter (which is at 60px)
+        livesDisplay.style.left = '20px';
+        livesDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        livesDisplay.style.color = '#00FF00'; // Red for hearts
+        livesDisplay.style.padding = '10px 15px';
+        livesDisplay.style.borderRadius = '5px';
+        livesDisplay.style.fontFamily = "'Press Start 2P', monospace";
+        livesDisplay.style.fontSize = '14px';
+        livesDisplay.style.zIndex = '1000';
+        livesDisplay.style.pointerEvents = 'none'; // Make it non-interactive
+        
+        // Set the content (LIVES: followed by 5 hearts)
+        livesDisplay.innerHTML = `LIVES: ${'❤️'.repeat(this.playerLives)}`;
+        
+        // Add to document
+        document.body.appendChild(livesDisplay);
+        
+        // Store reference
+        this.livesDisplay = livesDisplay;
+    }
+    
+    /**
+     * Create the win count display showing WON: 0/3
+     */
+    createWinCountDisplay() {
+        // Create the container
+        const winCountDisplay = document.createElement('div');
+        winCountDisplay.id = 'win-count-display';
+        winCountDisplay.style.position = 'fixed';
+        winCountDisplay.style.top = '145px'; // Position below lives display
+        winCountDisplay.style.left = '20px';
+        winCountDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        winCountDisplay.style.color = '#00FF00'; // Green for wins
+        winCountDisplay.style.padding = '10px 15px';
+        winCountDisplay.style.borderRadius = '5px';
+        winCountDisplay.style.fontFamily = "'Press Start 2P', monospace";
+        winCountDisplay.style.fontSize = '14px';
+        winCountDisplay.style.zIndex = '1000';
+        winCountDisplay.style.pointerEvents = 'none'; // Make it non-interactive
+        
+        // Set the content
+        winCountDisplay.textContent = `WON: ${this.playerWins}/${this.requiredWins}`;
+        
+        // Add to document
+        document.body.appendChild(winCountDisplay);
+        
+        // Store reference
+        this.winCountDisplay = winCountDisplay;
+    }
+    
+    
+
+    /**
+ * Update the lives display
+ */
+updateLivesDisplay() {
+    console.log('Updating lives display, livesDisplay:', !!this.livesDisplay, 'playerLives:', this.playerLives);
+    if (this.livesDisplay) {
+        this.livesDisplay.innerHTML = `LIVES: ${'❤️'.repeat(this.playerLives)}`;
+        console.log('Lives display updated to:', this.livesDisplay.innerHTML);
+    } else {
+        console.warn('Lives display element not found, creating UI elements');
+        this.createUIElements();
+        if (this.livesDisplay) {
+            this.livesDisplay.innerHTML = `LIVES: ${'❤️'.repeat(this.playerLives)}`;
+        }
+    }
+}
+    /**
+ * Update the win count display
+ */
+updateWinCountDisplay() {
+    console.log('Updating win count display, winCountDisplay:', !!this.winCountDisplay, 'playerWins:', this.playerWins);
+    if (this.winCountDisplay) {
+        this.winCountDisplay.textContent = `WON: ${this.playerWins}/${this.requiredWins}`;
+        console.log('Win count display updated to:', this.winCountDisplay.textContent);
+    } else {
+        console.warn('Win count display element not found, creating UI elements');
+        this.createUIElements();
+        if (this.winCountDisplay) {
+            this.winCountDisplay.textContent = `WON: ${this.playerWins}/${this.requiredWins}`;
+        }
+    }
+}
+    
+    /**
+     * Remove UI elements from the DOM
+     */
+    removeUIElements() {
+        // Remove lives display
+        if (this.livesDisplay && this.livesDisplay.parentNode) {
+            this.livesDisplay.parentNode.removeChild(this.livesDisplay);
+            this.livesDisplay = null;
+        }
+        
+        // Remove win count display
+        if (this.winCountDisplay && this.winCountDisplay.parentNode) {
+            this.winCountDisplay.parentNode.removeChild(this.winCountDisplay);
+            this.winCountDisplay = null;
+        }
+        
+        // Reset UI tracking
+        this.uiElementsCreated = false;
     }
 }
 
