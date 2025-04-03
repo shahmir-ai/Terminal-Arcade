@@ -1368,7 +1368,7 @@ setTimeout(() => {
                                 
                                 // Redirect after a delay to show the message
                                 setTimeout(() => {
-                                    window.location.href = currentObject.userData.url || 'https://google.com';
+                                    window.location.href = currentObject.userData.url || 'https://www.youtube.com/watch?v=sJNK4VKeoBM';
                                 }, 1500);
                             }
 
