@@ -85,12 +85,12 @@ class RealPongLevel {
 // Ball physics properties
 this.ballVelocity = new THREE.Vector3(0, 0, 0);
 this.ballSpeed = 0.3; // Initial ball speed
-this.ballSpeedMultiplier = 1.3; // Speed increase after threshold
+this.ballSpeedMultiplier = 1.15; // Speed increase after threshold
 this.hitCount = 0; // Track consecutive hits
 this.hitThreshold = 2; // Increase difficulty every 5 hits
 
 // Paddle AI properties  
-this.paddleSpeed = 0.12; // How fast paddles can move
+this.paddleSpeed = 0.22; // How fast paddles can move
 this.paddleMissChance = {
     front: 0.02, // 5% chance to miss initially
     back: 0.02
