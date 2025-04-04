@@ -78,9 +78,9 @@ class RealFroggerLevel {
         };
         
         this.vehicleSpeeds = {
-            lane1: 0.12,  // Medium speed
-            lane2: 0.12,  // Medium speed
-            lane3: 0.2    // Fast speed
+            lane1: 0.15,  // Medium speed
+            lane2: 0.16,  // Medium speed
+            lane3: 0.22    // Fast speed
         };
         
         this.spawnTimers = {
@@ -120,10 +120,10 @@ class RealFroggerLevel {
         
         // Reduce log speeds by 50%
         this.logSpeeds = {
-            lane1: 0.01,  // Medium speed (reduced from 0.06)
+            lane1: 0.06,  // Medium speed (reduced from 0.06)
             lane2: 0.02,  // Medium speed (reduced from 0.08)
             lane3: 0.03,  // High speed (reduced from 0.12)
-            lane4: 0.06  // Highest speed (reduced from 0.15)
+            lane4: 0.04  // Highest speed (reduced from 0.15)
         };
         
         this.logSizes = {
@@ -143,9 +143,9 @@ class RealFroggerLevel {
         // Reduce spawn intervals to make logs appear more frequently
         this.logSpawnIntervals = {
             lane1: 2000,  // Reduced from 8000 ms
-            lane2: 3000,  // Reduced from 6000 ms
+            lane2: 4000,  // Reduced from 6000 ms
             lane3: 4000,  // Reduced from 9000 ms
-            lane4: 2000   // Reduced from 5000 ms
+            lane4: 4000   // Reduced from 5000 ms
         };
         
         this.lastLogSpawnTime = Date.now();
@@ -160,6 +160,15 @@ class RealFroggerLevel {
         this.spawnLog = this.spawnLog.bind(this);
         this.checkLogCollisions = this.checkLogCollisions.bind(this);
 
+        // Add model storage
+        this.models = {};
+        
+        // Decorative elements
+        this.decorations = [];
+        
+        // Bind additional methods
+        this.loadModels = this.loadModels.bind(this);
+        this.createDecorations = this.createDecorations.bind(this);
     }
 
     /**
@@ -168,36 +177,108 @@ class RealFroggerLevel {
     init() {
         console.log('Initializing Real Frogger level...');
 
-        // Set up the scene appearance
-        this.scene.background = new THREE.Color(0x87CEEB); // Light blue sky
-        this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.01); // Light fog for depth
+        // Load 3D models first
+        return this.loadModels().then(() => {
 
-        // Reset camera position and rotation for room start
-        this.camera.position.set(0, this.groundLevel, this.ROOM_LENGTH/2 - this.START_ZONE_DEPTH/2); // Start in the middle of the start zone
-        this.camera.rotation.set(0, 0, 0); // Changed from Math.PI to 0 to face toward the game area instead of the back wall
-        this.verticalRotation = 0; // Reset vertical look angle
 
-        // Create the room environment
-        this.createFroggerRoom();
-        this.createZones();
-        this.setupLighting();
 
-        // Ensure controls are enabled
-        if (this.app) {
-            this.app.enableControls();
-        }
+// Set up the scene appearance
+this.scene.background = new THREE.Color(0xCCEEFF); // Lighter blue sky
+this.scene.fog = new THREE.FogExp2(0xFFFFFF, 0.015); // Increased fog density
 
-        console.log('Real Frogger level initialized');
+
+            // Reset camera position and rotation for room start
+            this.camera.position.set(0, this.groundLevel, this.ROOM_LENGTH/2 - this.START_ZONE_DEPTH/2); // Start in the middle of the start zone
+            this.camera.rotation.set(0, 0, 0); // Changed from Math.PI to 0 to face toward the game area instead of the back wall
+            this.verticalRotation = 0; // Reset vertical look angle
+
+            // Create the room environment
+            this.createFroggerRoom();
+            this.createFogWalls(); // Add this line
+
+            this.createZones();
+            this.setupLighting();
+
+            // Ensure controls are enabled
+            if (this.app) {
+                this.app.enableControls();
+            }
+
+            console.log('Real Frogger level initialized');
+            
+            // Display instructions
+            if (this.app && typeof this.app.showInteractionFeedback === 'function') {
+                this.app.showInteractionFeedback('Cross all zones to reach the goal!');
+            }
+            
+            // Initialize logs
+            this.createLogs();
+            
+            // Create decorative elements
+            this.createDecorations();
+            
+            return this;
+        });
+    }
+    
+    /**
+     * Load 3D models for vehicles
+     */
+    loadModels() {
+        console.log('Loading vehicle models...');
         
-        // Display instructions
-        if (this.app && typeof this.app.showInteractionFeedback === 'function') {
-            this.app.showInteractionFeedback('Cross all zones to reach the goal!');
-        }
-        
-        // Initialize logs
-        this.createLogs();
-        
-        return this;
+        // Create a promise that resolves when all models are loaded
+        return new Promise((resolve, reject) => {
+            // Check if GLTFLoader is available
+            if (!THREE.GLTFLoader) {
+                console.warn('THREE.GLTFLoader not found. Using fallback geometries.');
+                resolve();
+                return;
+            }
+            
+            const modelLoader = new THREE.GLTFLoader();
+            let modelsToLoad = 2; // car.glb and bus.glb
+            let modelsLoaded = 0;
+            
+            // Function to handle model loading completion
+            const onModelLoaded = () => {
+                modelsLoaded++;
+                if (modelsLoaded === modelsToLoad) {
+                    console.log('All vehicle models loaded successfully');
+                    resolve();
+                }
+            };
+            
+            // Load car model
+            modelLoader.load(
+                'assets/models/car.glb',
+                (gltf) => {
+                    console.log('Car model loaded');
+                    this.models.car = gltf;
+                    onModelLoaded();
+                },
+                undefined,
+                (error) => {
+                    console.error('Error loading car model:', error);
+                    onModelLoaded(); // Continue even if model fails to load
+                }
+            );
+            
+            // Load bus model
+            modelLoader.load(
+                'assets/models/bus.glb',
+                (gltf) => {
+                    console.log('Bus model loaded');
+                    this.models.bus = gltf;
+                    onModelLoaded();
+                },
+                undefined,
+                (error) => {
+                    console.error('Error loading bus model:', error);
+                    onModelLoaded(); // Continue even if model fails to load
+                }
+            );
+        });
     }
 
     /**
@@ -260,6 +341,209 @@ class RealFroggerLevel {
         console.log('Frogger room geometry created.');
     }
 
+
+
+
+
+/**
+ * Create fog walls around the perimeter of the level
+ */
+createFogWalls() {
+    console.log('Creating fog walls...');
+    
+    // Create a semi-transparent white material for fog effect
+    const fogMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFFFFF,
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide
+    });
+    
+    // Create a gradient texture for the fog
+    const gradientCanvas = document.createElement('canvas');
+    gradientCanvas.width = 256;
+    gradientCanvas.height = 256;
+    const ctx = gradientCanvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 256, 256);
+    
+    const gradientTexture = new THREE.CanvasTexture(gradientCanvas);
+    const fogGradientMaterial = new THREE.MeshBasicMaterial({
+        map: gradientTexture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    // Dimensions for the fog walls
+    const wallHeight = this.ROOM_HEIGHT * 1.2; // Slightly taller than room
+    const wallDepth = 2;
+    
+    // North Fog Wall (far end)
+    const northFogGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH + 10, wallHeight);
+    const northFogWall = new THREE.Mesh(northFogGeometry, fogMaterial);
+    northFogWall.position.set(0, wallHeight/2, -this.ROOM_LENGTH/2 + 1);
+    northFogWall.rotation.y = Math.PI;
+    this.scene.add(northFogWall);
+    this.roomObjects.push(northFogWall);
+    
+    // South Fog Wall (near end)
+    const southFogGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH + 10, wallHeight);
+    const southFogWall = new THREE.Mesh(southFogGeometry, fogMaterial);
+    southFogWall.position.set(0, wallHeight/2, this.ROOM_LENGTH/2 - 1);
+    this.scene.add(southFogWall);
+    this.roomObjects.push(southFogWall);
+    
+    // East Fog Wall (right)
+    const eastFogGeometry = new THREE.PlaneGeometry(this.ROOM_LENGTH + 10, wallHeight);
+    const eastFogWall = new THREE.Mesh(eastFogGeometry, fogMaterial);
+    eastFogWall.position.set(this.ROOM_WIDTH/2 - 1, wallHeight/2, 0);
+    eastFogWall.rotation.y = -Math.PI/2;
+    this.scene.add(eastFogWall);
+    this.roomObjects.push(eastFogWall);
+    
+    // West Fog Wall (left)
+    const westFogGeometry = new THREE.PlaneGeometry(this.ROOM_LENGTH + 10, wallHeight);
+    const westFogWall = new THREE.Mesh(westFogGeometry, fogMaterial);
+    westFogWall.position.set(-this.ROOM_WIDTH/2 + 1, wallHeight/2, 0);
+    westFogWall.rotation.y = Math.PI/2;
+    this.scene.add(westFogWall);
+    this.roomObjects.push(westFogWall);
+    
+    // Add additional fog particles for atmospheric effect
+    this.createFogParticles();
+    
+    console.log('Fog walls created.');
+}
+
+/**
+ * Create particle system for fog effect
+ */
+createFogParticles() {
+    // Create particulate fog for more atmosphere
+    const particleCount = 300;
+    const particles = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    
+    // Create particle material
+    const particleMaterial = new THREE.PointsMaterial({
+        color: 0xFFFFFF,
+        size: 0.8,
+        transparent: true,
+        opacity: 0.5,
+        map: this.createFogParticleTexture(),
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    
+    // Position particles around the play area perimeter
+    for (let i = 0; i < particleCount; i++) {
+        const index = i * 3;
+        
+        // Determine if this will be a side wall or end wall particle
+        const isSideWall = Math.random() > 0.5;
+        
+        if (isSideWall) {
+            // Position along side walls (east or west)
+            const side = Math.random() > 0.5 ? 1 : -1;
+            positions[index] = side * (this.ROOM_WIDTH/2 - Math.random() * 2); // X (near walls)
+            positions[index+1] = Math.random() * this.ROOM_HEIGHT; // Y
+            positions[index+2] = (Math.random() * 2 - 1) * this.ROOM_LENGTH/2; // Z
+        } else {
+            // Position along end walls (north or south)
+            const side = Math.random() > 0.5 ? 1 : -1;
+            positions[index] = (Math.random() * 2 - 1) * this.ROOM_WIDTH/2; // X
+            positions[index+1] = Math.random() * this.ROOM_HEIGHT; // Y
+            positions[index+2] = side * (this.ROOM_LENGTH/2 - Math.random() * 2); // Z (near walls)
+        }
+    }
+    
+    particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    
+    // Create particle system and add to scene
+    this.fogParticleSystem = new THREE.Points(particles, particleMaterial);
+    this.scene.add(this.fogParticleSystem);
+    this.roomObjects.push(this.fogParticleSystem);
+    
+    // Initialize particle velocities for animation
+    this.fogParticleVelocities = [];
+    for (let i = 0; i < particleCount; i++) {
+        this.fogParticleVelocities.push({
+            x: (Math.random() - 0.5) * 0.01, 
+            y: (Math.random() - 0.5) * 0.005,
+            z: (Math.random() - 0.5) * 0.01
+        });
+    }
+}
+
+/**
+ * Create a circular gradient texture for fog particles
+ */
+createFogParticleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    
+    const context = canvas.getContext('2d');
+    const gradient = context.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 0,
+        canvas.width / 2, canvas.height / 2, canvas.width / 2
+    );
+    
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.5, 'rgba(240,240,240,0.5)');
+    gradient.addColorStop(1, 'rgba(220,220,220,0)');
+    
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+}
+
+
+
+
+
+/**
+ * Create a normal map texture for water
+ */
+createWaterNormalMap() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#8888FF';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create wavy pattern for normal map
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const value1 = Math.sin(x * 0.01) * Math.cos(y * 0.01) * 127 + 127;
+            const value2 = Math.sin(x * 0.02 + 0.5) * Math.cos(y * 0.02) * 32 + 127;
+            const value3 = Math.sin(x * 0.04 + 1.0) * Math.cos(y * 0.04 + 0.5) * 16 + 127;
+            
+            const value = (value1 + value2 + value3) / 3;
+            
+            context.fillStyle = `rgb(${value}, ${value}, 255)`;
+            context.fillRect(x, y, 1, 1);
+        }
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    
+    return texture;
+}
+
+
+
     /**
      * Create the distinct game zones (start, road, water, goal)
      */
@@ -268,8 +552,8 @@ class RealFroggerLevel {
         
         // Create materials for each zone
         const startZoneMaterial = new THREE.MeshStandardMaterial({
-            color: 0x7CFC00, // Lawn green
-            roughness: 0.9,
+            color: 0x7CFC00, // Lawn green as base color
+            roughness: 1,
             metalness: 0.0
         });
         
@@ -306,11 +590,28 @@ class RealFroggerLevel {
         
         // Create the four zones as floor planes
         // 1. Start Zone (first safe zone)
-        const startZoneGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, this.START_ZONE_DEPTH);
+        const startZoneGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, this.START_ZONE_DEPTH, 32, 32);
         const startZone = new THREE.Mesh(startZoneGeometry, startZoneMaterial);
         startZone.rotation.x = -Math.PI / 2; // Make it horizontal
         startZone.position.set(0, 0, startZoneZ);
         startZone.userData = { zone: 'start', isSafe: true };
+        
+        // Add subtle height variations to make the terrain more interesting
+        const startPositions = startZone.geometry.attributes.position;
+        for (let i = 0; i < startPositions.count; i++) {
+            // Skip vertices at the edges to maintain flat boundaries
+            const x = startPositions.getX(i);
+            const y = startPositions.getY(i);
+            
+            if (Math.abs(x) < this.ROOM_WIDTH/2 - 1 && Math.abs(y) < this.START_ZONE_DEPTH/2 - 1) {
+                // Random height variation
+                const noise = Math.sin(x * 0.5) * Math.cos(y * 0.5) * 0.05 + 
+                            Math.random() * 0.05;
+                startPositions.setZ(i, noise);
+            }
+        }
+        startPositions.needsUpdate = true;
+        
         this.scene.add(startZone);
         this.zoneObjects.push(startZone);
         
@@ -333,9 +634,10 @@ class RealFroggerLevel {
         // Create road markings for more realistic traffic pattern
         // 1. Double yellow lines to separate lanes
         
+        const yellowMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+        
         // Yellow line between lane 1 and lane 2
         const yellowLine1Geometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, 0.15);
-        const yellowMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
         const yellowLine1a = new THREE.Mesh(yellowLine1Geometry, yellowMaterial);
         yellowLine1a.rotation.x = -Math.PI / 2;
         yellowLine1a.position.set(0, 0.02, roadZoneZ - laneWidth/2 - 0.1); // Between lanes 1 & 2
@@ -360,6 +662,27 @@ class RealFroggerLevel {
         yellowLine2b.position.set(0, 0.02, roadZoneZ + laneWidth/2 + 0.1); // Between lanes 2 & 3
         this.scene.add(yellowLine2b);
         this.zoneObjects.push(yellowLine2b);
+        
+        // Create roadside barriers/curbs
+        const curbMaterial = new THREE.MeshStandardMaterial({
+            color: 0x999999,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        
+        // Top road curb (between road and water)
+        const topCurbGeometry = new THREE.BoxGeometry(this.ROOM_WIDTH, 0.3, 0.5);
+        const topCurb = new THREE.Mesh(topCurbGeometry, curbMaterial);
+        topCurb.position.set(0, 0.15, roadZoneZ - this.ROAD_ZONE_DEPTH/2 - 0.25);
+        this.scene.add(topCurb);
+        this.zoneObjects.push(topCurb);
+        
+        // Bottom road curb (between road and start zone)
+        const bottomCurbGeometry = new THREE.BoxGeometry(this.ROOM_WIDTH, 0.3, 0.5);
+        const bottomCurb = new THREE.Mesh(bottomCurbGeometry, curbMaterial);
+        bottomCurb.position.set(0, 0.15, roadZoneZ + this.ROAD_ZONE_DEPTH/2 + 0.25);
+        this.scene.add(bottomCurb);
+        this.zoneObjects.push(bottomCurb);
         
         // 2. Dashed white lines in the CENTER of each lane
         const createDashedLine = (zPosition) => {
@@ -387,45 +710,121 @@ class RealFroggerLevel {
         createDashedLine(lane2Z);  // Center of lane 2
         createDashedLine(lane3Z);  // Center of lane 3
         
-        // 3. Water Zone (blue with a slight wave effect)
-        const waterZoneGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, this.WATER_ZONE_DEPTH, 32, 32);
-        const waterZone = new THREE.Mesh(waterZoneGeometry, waterZoneMaterial);
-        waterZone.rotation.x = -Math.PI / 2;
-        waterZone.position.set(0, 0, waterZoneZ);
-        waterZone.userData = { zone: 'water', isSafe: false }; // Can't walk on water directly
         
-        // Add subtle wave animation to the water vertices (will be animated in update)
-        const waterPositions = waterZone.geometry.attributes.position;
-        this.waterWaveTime = 0;
-        this.waterVertices = [];
+
+// 3. Water Zone with enhanced water effect
+const waterZoneGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, this.WATER_ZONE_DEPTH, 64, 64);
+const waterNormalMap = this.createWaterNormalMap();
+const waterMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x0066CC,  // Deeper blue
+    roughness: 1,   // More reflective
+    metalness: 0,   // Less metallic
+    transparent: true,
+    opacity: 0.85,
+    side: THREE.DoubleSide,
+    normalMap: waterNormalMap,
+    normalScale: new THREE.Vector2(0.8, 0.8),
+    envMapIntensity: 0.8,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
+});
+
+const waterZone = new THREE.Mesh(waterZoneGeometry, waterMaterial);
+waterZone.rotation.x = -Math.PI / 2;
+waterZone.position.set(0, 0.1, waterZoneZ); // Slight elevation to avoid z-fighting
+waterZone.userData = { zone: 'water', isSafe: false };
+
+// Enhanced water animation properties
+const waterPositions = waterZone.geometry.attributes.position;
+this.waterWaveTime = 0;
+this.waterVertices = [];
+this.waterFrequencies = [];
+this.waterPhases = [];
+
+for (let i = 0; i < waterPositions.count; i++) {
+    const x = waterPositions.getX(i);
+    const y = waterPositions.getY(i);
+    const z = waterPositions.getZ(i);
+    
+    // Randomize wave frequencies and phases for more natural look
+    this.waterVertices.push({ x, y, z, originalZ: z });
+    this.waterFrequencies.push(0.05 + Math.random() * 0.04);
+    this.waterPhases.push(Math.random() * Math.PI * 2);
+}
+
+// Surface water reflections
+const waterSurface = new THREE.Mesh(
+    new THREE.PlaneGeometry(this.ROOM_WIDTH * 0.98, this.WATER_ZONE_DEPTH * 0.98),
+    new THREE.MeshBasicMaterial({
+        color: 0x77BBFF,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide
+    })
+);
+waterSurface.rotation.x = -Math.PI / 2;
+waterSurface.position.set(0, 0.15, waterZoneZ); // Slightly above water
+this.scene.add(waterSurface);
+this.zoneObjects.push(waterSurface);
+
+this.scene.add(waterZone);
+this.zoneObjects.push(waterZone);
+this.waterZone = waterZone;
+
+
         
-        for (let i = 0; i < waterPositions.count; i++) {
-            const x = waterPositions.getX(i);
-            const y = waterPositions.getY(i);
-            const z = waterPositions.getZ(i);
-            this.waterVertices.push({ x, y, z, originalZ: z });
-        }
+        // Create riverbank edges (for a more natural transition)
+        const riverBankMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513, // Brown
+            roughness: 1.0,
+            metalness: 0.0
+        });
         
-        this.scene.add(waterZone);
-        this.zoneObjects.push(waterZone);
-        this.waterZone = waterZone; // Save reference for animation
+        // Top riverbank
+        const topBankGeometry = new THREE.BoxGeometry(this.ROOM_WIDTH, 0.2, 0.8);
+        const topBank = new THREE.Mesh(topBankGeometry, riverBankMaterial);
+        topBank.position.set(0, 0.1, waterZoneZ - this.WATER_ZONE_DEPTH/2 - 0.4);
+        this.scene.add(topBank);
+        this.zoneObjects.push(topBank);
         
-        // 4. Goal Zone (safe ending area)
-        const goalZoneGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, this.GOAL_ZONE_DEPTH);
+        // Bottom riverbank
+        const bottomBankGeometry = new THREE.BoxGeometry(this.ROOM_WIDTH, 0.2, 0.8);
+        const bottomBank = new THREE.Mesh(bottomBankGeometry, riverBankMaterial);
+        bottomBank.position.set(0, 0.1, waterZoneZ + this.WATER_ZONE_DEPTH/2 + 0.4);
+        this.scene.add(bottomBank);
+        this.zoneObjects.push(bottomBank);
+        
+        // 4. Goal Zone (safe ending area) with enhanced terrain
+        const goalZoneGeometry = new THREE.PlaneGeometry(this.ROOM_WIDTH, this.GOAL_ZONE_DEPTH, 32, 32);
         const goalZone = new THREE.Mesh(goalZoneGeometry, goalZoneMaterial);
         goalZone.rotation.x = -Math.PI / 2;
         goalZone.position.set(0, 0, goalZoneZ);
         goalZone.userData = { zone: 'goal', isSafe: true };
+        
+        // Add subtle height variations to make the terrain more interesting
+        const goalPositions = goalZone.geometry.attributes.position;
+        for (let i = 0; i < goalPositions.count; i++) {
+            // Skip vertices at the edges to maintain flat boundaries
+            const x = goalPositions.getX(i);
+            const y = goalPositions.getY(i);
+            
+            if (Math.abs(x) < this.ROOM_WIDTH/2 - 1 && Math.abs(y) < this.GOAL_ZONE_DEPTH/2 - 1) {
+                // Random height variation
+                const noise = Math.sin(x * 0.3) * Math.cos(y * 0.3) * 0.08 + 
+                             Math.random() * 0.04;
+                goalPositions.setZ(i, noise);
+            }
+        }
+        goalPositions.needsUpdate = true;
+        
         this.scene.add(goalZone);
         this.zoneObjects.push(goalZone);
-        
-        // Removed the gold marker cubes from the goal zone as they're unnecessary
-        // since reaching the green zone already triggers the win condition
         
         // Initialize vehicles after all zones are created
         this.createVehicles();
         
-        console.log('Frogger game zones created.');
+        console.log('Frogger game zones created with enhanced visuals.');
     }
 
     /**
@@ -456,9 +855,9 @@ class RealFroggerLevel {
         });
         
         // Start the initial spawn timers
-        this.spawnTimers.lane1 = Math.random() * 1000; // Random initial delay
-        this.spawnTimers.lane2 = Math.random() * 2000;
-        this.spawnTimers.lane3 = Math.random() * 1500;
+        this.spawnTimers.lane1 = Math.random() * 100; // Random initial delay
+        this.spawnTimers.lane2 = Math.random() * 200;
+        this.spawnTimers.lane3 = Math.random() * 150;
         
         console.log('Vehicle system initialized');
     }
@@ -478,6 +877,7 @@ class RealFroggerLevel {
         let direction;
         let material;
         let size;
+        let modelType;
         
         if (lane === 'lane1') {
             // Lane 1: Top lane - Cars going left to right
@@ -485,6 +885,7 @@ class RealFroggerLevel {
             direction = 1; // Moving right (positive X)
             material = this.carMaterial;
             size = { length: 2, width: 1, height: 0.8 }; // Car size
+            modelType = 'car';
         } 
         else if (lane === 'lane2') {
             // Lane 2: Middle lane - Buses going right to left
@@ -492,6 +893,7 @@ class RealFroggerLevel {
             direction = -1; // Moving left (negative X)
             material = this.busMaterial;
             size = { length: 4, width: 1.2, height: 1.2 }; // Bus size (longer)
+            modelType = 'bus';
         }
         else if (lane === 'lane3') {
             // Lane 3: Bottom lane - Fast cars going left to right
@@ -499,27 +901,65 @@ class RealFroggerLevel {
             direction = 1; // Moving right (positive X)
             material = this.fastCarMaterial;
             size = { length: 2, width: 1, height: 0.8 }; // Same car size
+            modelType = 'car';
         }
         
-        // Create vehicle geometry
-        const vehicleGeometry = new THREE.BoxGeometry(
-            size.length,  // Length (along X axis)
-            size.height,  // Height (along Y axis)
-            size.width    // Width (along Z axis)
-        );
+        let vehicle;
         
-        const vehicle = new THREE.Mesh(vehicleGeometry, material);
+        // Try to use loaded models if available
+        if (this.models[modelType] && this.models[modelType].scene) {
+            // Clone the model to create a new instance
+            vehicle = this.models[modelType].scene.clone();
+            
+            // Apply appropriate scale based on model type
+            // Change just the bus scale (second value) to make it smaller
+            const scale = modelType === 'car' ? 1 : 0.5; // Make bus smaller (was 1.0)
+            vehicle.scale.set(scale, scale, scale);
+            
+            // We no longer need to apply color to the model - using original textures
+            
+            // Store collision size for detection (use original size for collision)
+            vehicle.userData = {
+                collisionSize: size
+            };
+        } else {
+            // Fallback to box geometry if model not available
+            console.log(`Using fallback geometry for ${modelType} in ${lane}`);
+            const vehicleGeometry = new THREE.BoxGeometry(
+                size.length,
+                size.height,
+                size.width
+            );
+            
+            vehicle = new THREE.Mesh(vehicleGeometry, material);
+            
+            // For box geometry, collision size is the geometry size
+            vehicle.userData = {
+                collisionSize: size
+            };
+        }
         
         // Position the vehicle outside the room on the appropriate side
         const xStart = direction > 0 ? -this.ROOM_WIDTH/2 - size.length/2 : this.ROOM_WIDTH/2 + size.length/2;
-        vehicle.position.set(xStart, size.height/2, zPos);
         
-        // Store direction and lane info in the vehicle object
-        vehicle.userData = {
-            direction: direction,
-            lane: lane,
-            speed: this.vehicleSpeeds[lane]
-        };
+        // Set different height adjustments for cars and buses
+        const heightAdjustment = modelType === 'car' ? -0.35 : -0.63; // Cars higher (-0.3), buses lower (-0.7)
+        vehicle.position.set(xStart, size.height/2 + heightAdjustment, zPos);
+
+        // Correct the rotation to make models face along the X-axis instead of Z-axis
+        // First rotate 90 degrees to align with X-axis, then add 180 degrees if moving left
+        if (direction > 0) {
+            // Rotate 90° to face right (positive X)
+            vehicle.rotation.y = -Math.PI / 2 + Math.PI; // or simply Math.PI/2
+        } else {
+            // Rotate 270° to face left (negative X)
+            vehicle.rotation.y = Math.PI / 2 + Math.PI; // or simply 3*Math.PI/2
+        }
+        
+        // Store direction, lane info, and speed in userData
+        vehicle.userData.direction = direction;
+        vehicle.userData.lane = lane;
+        vehicle.userData.speed = this.vehicleSpeeds[lane];
         
         // Add to the scene and to the appropriate lane array
         this.scene.add(vehicle);
@@ -554,12 +994,21 @@ class RealFroggerLevel {
                 vehicle.position.x += vehicle.userData.direction * moveDistance;
                 
                 // Check if the vehicle has gone off-screen and should be removed
-                if ((vehicle.userData.direction > 0 && vehicle.position.x > this.ROOM_WIDTH/2 + vehicle.geometry.parameters.width/2) ||
-                    (vehicle.userData.direction < 0 && vehicle.position.x < -this.ROOM_WIDTH/2 - vehicle.geometry.parameters.width/2)) {
+                // For models, use the collision size from userData
+                const size = vehicle.userData.collisionSize;
+                if ((vehicle.userData.direction > 0 && vehicle.position.x > this.ROOM_WIDTH/2 + size.length/2) ||
+                    (vehicle.userData.direction < 0 && vehicle.position.x < -this.ROOM_WIDTH/2 - size.length/2)) {
                     vehiclesToRemove.push(index);
                     this.scene.remove(vehicle);
-                    vehicle.geometry.dispose();
-                    vehicle.material.dispose();
+                    // Clean up resources
+                    if (vehicle.geometry) vehicle.geometry.dispose();
+                    if (vehicle.material) {
+                        if (Array.isArray(vehicle.material)) {
+                            vehicle.material.forEach(m => m.dispose());
+                        } else {
+                            vehicle.material.dispose();
+                        }
+                    }
                 }
             });
             
@@ -576,29 +1025,13 @@ class RealFroggerLevel {
     createLogs() {
         console.log('Creating logs for the water lanes...');
         
-        // Create materials for the logs with different colors for each lane
-        this.logMaterials = {
-            lane1: new THREE.MeshStandardMaterial({
-                color: 0x8B4513, // Brown
-                roughness: 0.7,
-                metalness: 0.3
-            }),
-            lane2: new THREE.MeshStandardMaterial({
-                color: 0x966F33, // Lighter brown
-                roughness: 0.7,
-                metalness: 0.3
-            }),
-            lane3: new THREE.MeshStandardMaterial({
-                color: 0x7F5217, // Darker brown
-                roughness: 0.7,
-                metalness: 0.3
-            }),
-            lane4: new THREE.MeshStandardMaterial({
-                color: 0xA0522D, // Sienna
-                roughness: 0.7,
-                metalness: 0.3
-            })
-        };
+// Create materials for the logs with wood textures
+this.logMaterials = {
+    lane1: this.createWoodMaterial(0x8B4513, 0.7), // Brown
+    lane2: this.createWoodMaterial(0x966F33, 0.8), // Lighter brown
+    lane3: this.createWoodMaterial(0x7F5217, 0.6), // Darker brown
+    lane4: this.createWoodMaterial(0xA0522D, 0.7)  // Sienna
+};
         
         // Start the initial spawn timers with random offsets to prevent all logs spawning at once
         this.logSpawnTimers.lane1 = Math.random() * 3000;
@@ -778,29 +1211,58 @@ class RealFroggerLevel {
         console.log('Setting up Frogger room lighting...');
         this.roomLights = []; // Clear previous lights
 
-        // Main ambient light
-        const ambientLight = new THREE.AmbientLight(0xCCCCCC, 0.7);
+        // Main ambient light - brighten for better visibility
+        const ambientLight = new THREE.AmbientLight(0xCCCCCC, 0.8);
         this.scene.add(ambientLight);
         this.roomLights.push(ambientLight);
 
-        // Directional light (sunlight)
-        const sunLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
-        sunLight.position.set(50, 100, 50);
+        // Directional light (sunlight) - more natural positioning
+        const sunLight = new THREE.DirectionalLight(0xFFEECC, 1.0); // Warmer color
+        sunLight.position.set(-30, 100, 20);
         sunLight.castShadow = true;
+        
+        // Improve shadow quality if supported
+        if (sunLight.shadow) {
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 500;
+            sunLight.shadow.bias = -0.0001;
+        }
+        
         this.scene.add(sunLight);
         this.roomLights.push(sunLight);
 
         // Add a spotlight over the goal zone for emphasis
-        const spotLight = new THREE.SpotLight(0xFFFFFF, 1);
+        const spotLight = new THREE.SpotLight(0xFFFFFF, 1.5); // Increased intensity
         spotLight.position.set(0, this.ROOM_HEIGHT-1, -this.ROOM_LENGTH/2 + this.GOAL_ZONE_DEPTH/2);
         spotLight.angle = Math.PI / 6;
         spotLight.penumbra = 0.3;
         spotLight.decay = 1;
         spotLight.distance = this.GOAL_ZONE_DEPTH * 2;
+        
+        // Add slight golden color for goal emphasis
+        spotLight.color.setHSL(0.1, 0.5, 0.9);
+        
         this.scene.add(spotLight);
         this.roomLights.push(spotLight);
+        
+        // Add point lights along the water for reflections
+        const waterCenterZ = this.ROOM_LENGTH/2 - this.START_ZONE_DEPTH - this.ROAD_ZONE_DEPTH - this.WATER_ZONE_DEPTH/2;
+        
+        // Left water light
+        const waterLight1 = new THREE.PointLight(0x6688FF, 0.5, 15);
+        waterLight1.position.set(-this.ROOM_WIDTH/4, 2, waterCenterZ);
+        this.scene.add(waterLight1);
+        this.roomLights.push(waterLight1);
+        
+        // Right water light
+        const waterLight2 = new THREE.PointLight(0x6688FF, 0.5, 15);
+        waterLight2.position.set(this.ROOM_WIDTH/4, 2, waterCenterZ);
+        this.scene.add(waterLight2);
+        this.roomLights.push(waterLight2);
 
-        console.log('Frogger room lighting set up.');
+        console.log('Frogger room lighting set up with enhanced effects.');
     }
 
     /**
@@ -851,31 +1313,65 @@ class RealFroggerLevel {
         if (this.inWaterZone) {
             if (!this.playerOnLog && !this.isJumping) {
                 // Player is in water and not on a log or jumping
-                this.timeInWater += this.app.deltaTime || 16; // Default to 16ms if deltaTime not available
-                
-                // Drown if grace period exceeded
-                    this.handleGameOver("SLEEP WITH THE FISHES!");
-                
+                this.handleGameOver("SLEEP WITH THE FISHES!");
             }
         } else {
             // Player is out of the water zone
             this.timeInWater = 0;
         }
         
-        // Animate water waves
-        if (this.waterZone && this.waterVertices) {
-            this.waterWaveTime += 0.03;
-            const waterPositions = this.waterZone.geometry.attributes.position;
+// Enhance water animation
+if (this.waterZone && this.waterVertices) {
+    this.waterWaveTime += 0.03;
+    const waterPositions = this.waterZone.geometry.attributes.position;
+    
+    for (let i = 0; i < this.waterVertices.length; i++) {
+        const vertex = this.waterVertices[i];
+        // Create a more complex wave effect using multiple sine waves
+        const wave1 = Math.sin(vertex.x * 0.3 + this.waterWaveTime) * 0.08;
+        const wave2 = Math.cos(vertex.y * 0.2 + this.waterWaveTime * 0.8) * 0.06;
+        const wave3 = Math.sin((vertex.x + vertex.y) * 0.1 + this.waterWaveTime * 1.2) * 0.04;
+        
+        waterPositions.setZ(i, vertex.originalZ + wave1 + wave2 + wave3);
+    }
+    
+    waterPositions.needsUpdate = true;
+    
+    // Animate normal map by shifting it
+    if (this.waterZone.material.normalMap) {
+        this.waterZone.material.normalMap.offset.x = Math.sin(this.waterWaveTime * 0.05) * 0.1;
+        this.waterZone.material.normalMap.offset.y = Math.cos(this.waterWaveTime * 0.05) * 0.1;
+    }
+    
+    // Move fog particles for atmospheric effect
+    if (this.fogParticleSystem) {
+        const positions = this.fogParticleSystem.geometry.attributes.position;
+        
+        for (let i = 0; i < this.fogParticleVelocities.length; i++) {
+            const index = i * 3;
+            const velocity = this.fogParticleVelocities[i];
             
-            for (let i = 0; i < this.waterVertices.length; i++) {
-                const vertex = this.waterVertices[i];
-                // Create a subtle wave effect using sine waves
-                const waveFactor = Math.sin(vertex.x * 0.5 + this.waterWaveTime) * 0.1;
-                waterPositions.setZ(i, vertex.originalZ + waveFactor);
+            // Update position based on velocity
+            positions.array[index] += velocity.x;
+            positions.array[index+1] += velocity.y;
+            positions.array[index+2] += velocity.z;
+            
+            // Check boundaries and bounce or wrap particles
+            if (Math.abs(positions.array[index]) > this.ROOM_WIDTH/2 + 3) {
+                velocity.x *= -1;
             }
-            
-            waterPositions.needsUpdate = true;
+            if (positions.array[index+1] < 0 || positions.array[index+1] > this.ROOM_HEIGHT) {
+                velocity.y *= -1;
+            }
+            if (Math.abs(positions.array[index+2]) > this.ROOM_LENGTH/2 + 3) {
+                velocity.z *= -1;
+            }
         }
+        
+        positions.needsUpdate = true;
+    }
+}
+
         
         // Check if player has reached the goal zone
         const currentZone = this.getCurrentZone(this.camera.position);
@@ -930,17 +1426,16 @@ class RealFroggerLevel {
         // Check each lane for vehicle collisions
         for (const lane in this.vehicles) {
             for (const vehicle of this.vehicles[lane]) {
-                // Get vehicle dimensions for more accurate collision detection
-                const vehicleLength = vehicle.geometry.parameters.width; // X-axis dimension
-                const vehicleWidth = vehicle.geometry.parameters.depth;  // Z-axis dimension
+                // Get vehicle dimensions from userData (works with models and fallback geometry)
+                const collisionSize = vehicle.userData.collisionSize;
                 
                 // Calculate distance between player and vehicle
                 const dx = Math.abs(playerPosition.x - vehicle.position.x);
                 const dz = Math.abs(playerPosition.z - vehicle.position.z);
                 
                 // Allow a small buffer inside the vehicle bounds (0.9 factor)
-                const halfLength = (vehicleLength * 0.9) / 2;
-                const halfWidth = (vehicleWidth * 0.9) / 2;
+                const halfLength = (collisionSize.length * 0.9) / 2;
+                const halfWidth = (collisionSize.width * 0.9) / 2;
                 
                 // If player is inside the vehicle bounding box, trigger collision
                 if (dx < halfLength + playerRadius && dz < halfWidth + playerRadius) {
@@ -1001,6 +1496,90 @@ async transitionBackToCorridor() {
     }
     
     this.transitionInProgress = false;
+}
+
+
+
+
+
+/**
+ * Create a wood material with grain texture
+ * @param {number} baseColor - The base color for the wood
+ * @param {number} roughnessFactor - How rough the wood appears (0-1)
+ * @returns {THREE.MeshStandardMaterial} Material with wood grain appearance
+ */
+createWoodMaterial(baseColor, roughnessFactor) {
+    // Create wood grain texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // Extract RGB components from the color
+    const r = (baseColor >> 16) & 255;
+    const g = (baseColor >> 8) & 255;
+    const b = baseColor & 255;
+    
+    // Create base color
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create wood grain pattern
+    for (let y = 0; y < canvas.height; y++) {
+        // Create wavy grain patterns
+        const grainWidth = 1 + Math.random() * 2;
+        
+        for (let x = 0; x < canvas.width; x += grainWidth) {
+            // Vary darkness of grain based on noise
+            const noise = Math.sin(y * 0.1) * 10 + Math.sin(y * 0.05) * 20;
+            const lineX = x + noise;
+            
+            // Occasional darker grain lines
+            if (Math.random() > 0.97) {
+                const darkenFactor = 0.7 + Math.random() * 0.2;
+                const grainColor = `rgba(${r*darkenFactor}, ${g*darkenFactor}, ${b*darkenFactor}, 0.8)`;
+                ctx.fillStyle = grainColor;
+                ctx.fillRect(lineX, 0, grainWidth * (0.5 + Math.random()), canvas.height);
+            }
+            
+            // Add some knots/whorls occasionally
+            if (Math.random() > 0.995) {
+                const knotX = lineX + Math.random() * 20;
+                const knotY = Math.random() * canvas.height;
+                const knotRadius = 5 + Math.random() * 15;
+                
+                const knotGradient = ctx.createRadialGradient(
+                    knotX, knotY, 0,
+                    knotX, knotY, knotRadius
+                );
+                
+                knotGradient.addColorStop(0, `rgba(${r*0.5}, ${g*0.5}, ${b*0.5}, 0.9)`);
+                knotGradient.addColorStop(0.7, `rgba(${r*0.7}, ${g*0.7}, ${b*0.7}, 0.7)`);
+                knotGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+                
+                ctx.fillStyle = knotGradient;
+                ctx.beginPath();
+                ctx.arc(knotX, knotY, knotRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+    
+    // Create wood texture and bump map from the canvas
+    const woodTexture = new THREE.CanvasTexture(canvas);
+    woodTexture.wrapS = THREE.RepeatWrapping;
+    woodTexture.wrapT = THREE.RepeatWrapping;
+    
+    // Create material with the wood texture
+    const material = new THREE.MeshStandardMaterial({
+        map: woodTexture,
+        roughness: roughnessFactor,
+        metalness: 0.1,
+        bumpMap: woodTexture,
+        bumpScale: 0.05,
+    });
+    
+    return material;
 }
 
     /**
@@ -1201,13 +1780,145 @@ async transitionBackToCorridor() {
     }
 
     /**
+     * Create decorative elements for the environment
+     */
+    createDecorations() {
+        console.log('Adding decorative elements to the scene...');
+        
+        // Calculate zone positions for placing decorations
+        const halfLength = this.ROOM_LENGTH / 2;
+        const startZoneZ = halfLength - this.START_ZONE_DEPTH/2;
+        const goalZoneZ = -halfLength + this.GOAL_ZONE_DEPTH/2;
+        
+        // Create trees around the start zone
+        this.createTrees(startZoneZ, 5);
+        
+        // Create trees around the goal zone
+        this.createTrees(goalZoneZ, 7);
+        
+        // Create grass tufts on start and goal zones
+        this.createGrassTufts(startZoneZ);
+        this.createGrassTufts(goalZoneZ);
+        
+        console.log('Decorative elements added successfully');
+    }
+    
+    /**
+     * Create tree objects around a specific zone
+     * @param {number} zCenter - The z-coordinate center of the zone
+     * @param {number} count - Number of trees to create
+     */
+    createTrees(zCenter, count) {
+        // Materials for trees
+        const trunkMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513, // Brown
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        
+        const foliageMaterial = new THREE.MeshStandardMaterial({
+            color: 0x228B22, // Forest green
+            roughness: 0.8,
+            metalness: 0.0
+        });
+        
+        // Create the specified number of trees
+        for (let i = 0; i < count; i++) {
+            // Randomize position along x-axis, staying within room bounds
+            const xPos = (Math.random() - 0.5) * (this.ROOM_WIDTH - 4);
+            
+            // Randomize position along z-axis around the center, but not on the path
+            const zOffset = (Math.random() - 0.5) * 6;
+            const zPos = zCenter + zOffset;
+            
+            // Randomize tree size
+            const trunkHeight = 2 + Math.random() * 1.5;
+            const trunkRadius = 0.2 + Math.random() * 0.1;
+            const foliageRadius = 1 + Math.random() * 0.5;
+            
+            // Create trunk
+            const trunkGeometry = new THREE.CylinderGeometry(trunkRadius, trunkRadius * 1.2, trunkHeight, 8);
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.set(xPos, trunkHeight/2, zPos);
+            this.scene.add(trunk);
+            this.decorations.push(trunk);
+            
+            // Create foliage (cone for pine trees, sphere for deciduous)
+            let foliageGeometry;
+            if (Math.random() > 0.5) {
+                // Pine tree
+                foliageGeometry = new THREE.ConeGeometry(foliageRadius, foliageRadius * 2, 8);
+                const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                foliage.position.set(xPos, trunkHeight + foliageRadius, zPos);
+                this.scene.add(foliage);
+                this.decorations.push(foliage);
+            } else {
+                // Deciduous tree (spheres stacked on trunk)
+                const foliageLayers = 2 + Math.floor(Math.random() * 2);
+                for (let j = 0; j < foliageLayers; j++) {
+                    const layerRadius = foliageRadius * (1 - j * 0.15);
+                    foliageGeometry = new THREE.SphereGeometry(layerRadius, 8, 8);
+                    const foliageLayer = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    foliageLayer.position.set(
+                        xPos + (Math.random() - 0.5) * 0.2, 
+                        trunkHeight + layerRadius * 0.8 + j * layerRadius * 0.5, 
+                        zPos + (Math.random() - 0.5) * 0.2
+                    );
+                    this.scene.add(foliageLayer);
+                    this.decorations.push(foliageLayer);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Create grass tufts in a specified zone
+     * @param {number} zCenter - The z-coordinate center of the zone
+     */
+    createGrassTufts(zCenter) {
+        const grassMaterial = new THREE.MeshStandardMaterial({
+            color: 0x7CFC00, // Lawn green
+            roughness: 1.0,
+            metalness: 0.0,
+            side: THREE.DoubleSide
+        });
+        
+        const tuftCount = 40;
+        const zoneWidth = 10; // Approximate zone width to place grass in
+        
+        for (let i = 0; i < tuftCount; i++) {
+            // Randomize position
+            const xPos = (Math.random() - 0.5) * this.ROOM_WIDTH * 0.9;
+            const zPos = zCenter + (Math.random() - 0.5) * zoneWidth;
+            
+            // Create grass tuft as crossed planes
+            const tuftHeight = 0.3 + Math.random() * 0.3;
+            const tuftWidth = 0.1 + Math.random() * 0.1;
+            
+            const tuftGeometry = new THREE.PlaneGeometry(tuftWidth, tuftHeight);
+            
+            // Create crossed planes for grass tuft
+            const tuft1 = new THREE.Mesh(tuftGeometry, grassMaterial);
+            tuft1.position.set(xPos, tuftHeight/2, zPos);
+            this.scene.add(tuft1);
+            this.decorations.push(tuft1);
+            
+            const tuft2 = new THREE.Mesh(tuftGeometry, grassMaterial);
+            tuft2.position.set(xPos, tuftHeight/2, zPos);
+            tuft2.rotation.y = Math.PI/2; // Rotate 90 degrees to cross with first plane
+            this.scene.add(tuft2);
+            this.decorations.push(tuft2);
+        }
+    }
+
+    /**
      * Clean up resources when unloading the level
      */
     unload() {
         console.log('Unloading Real Frogger level...');
 
         // Remove objects from scene and dispose geometry/material
-        [...this.roomObjects, ...this.zoneObjects].forEach(object => {
+        [...this.roomObjects, ...this.zoneObjects, ...this.decorations].forEach(object => {
             if (object.parent) {
                 object.parent.remove(object);
             }
@@ -1226,6 +1937,34 @@ async transitionBackToCorridor() {
         });
         this.roomObjects = [];
         this.zoneObjects = [];
+        this.decorations = [];
+
+        // Remove vehicles
+        for (const lane in this.vehicles) {
+            this.vehicles[lane].forEach(vehicle => {
+                this.scene.remove(vehicle);
+            });
+            this.vehicles[lane] = [];
+        }
+        
+        // Remove logs
+        for (const lane in this.logs) {
+            this.logs[lane].forEach(log => {
+                this.scene.remove(log);
+            });
+            this.logs[lane] = [];
+        }
+
+        // Clean up models
+        this.models = {};
+
+        // Dispose textures
+        for (const key in this.textures) {
+            if (this.textures[key]) {
+                this.textures[key].dispose();
+            }
+        }
+        this.textures = {};
 
         // Remove lights
         this.roomLights.forEach(light => {
