@@ -3305,15 +3305,28 @@ openDoor() {
 easeOutQuad(t) {
     return t * (2 - t);
 }
-  /**
- * Animation loop
+
+
+/**
+ * Animation loop with 60 FPS cap
  */
 animate() {
-    const now = performance.now();
-    // Removed deltaTime calculation - not needed if movement is level-specific
-    this.lastFrameTime = now; // Keep updating lastFrameTime for FPS counter
-
+    // Request next frame first to ensure smooth animation
     requestAnimationFrame(this.animate);
+
+    // Get current time
+    const now = performance.now();
+    
+    // Calculate time since last frame
+    const elapsed = now - (this.lastFrameTime || now - 16.7);
+    
+    // Skip this frame if less than 16.7ms has passed (enforcing ~60 FPS)
+    if (elapsed < 16.7) {
+        return;
+    }
+    
+    // Update the last frame time
+    this.lastFrameTime = now;
 
     // Handle level-specific updates and movement
     if (this.currentLevel === 'arcade') {
@@ -3322,10 +3335,10 @@ animate() {
         this.updateAnimatedScreens();
     } else if (this.currentLevel === 'corridor' && this.levelManager?.corridorLevel?.update) {
         // Corridor level handles its own movement via its update function
-        this.levelManager.corridorLevel.update(); // Pass no deltaTime
+        this.levelManager.corridorLevel.update();
     } else if (this.currentLevel === 'real_pacman' && this.levelManager?.realPacmanLevel?.update) {
         // Real Pacman level will handle its own movement via its update function
-        this.levelManager.realPacmanLevel.update(); // Pass no deltaTime
+        this.levelManager.realPacmanLevel.update();
     } else if (this.currentLevel === 'real_space_invaders' && this.levelManager?.realSpaceInvadersLevel?.update) {
         // Real Space Invaders level handles its own movement via its update function
         this.levelManager.realSpaceInvadersLevel.update();
@@ -3345,7 +3358,6 @@ animate() {
         // Final Room level handles its own movement via its update function
         this.levelManager.finalRoomLevel.update();
     }
-    // Removed extra closing brace here
 
     // Update FPS counter
     this.updateFpsCounter(now);
@@ -3387,7 +3399,6 @@ animate() {
     // Render the scene
     this.renderer.render(this.scene, this.camera);
 }
-
     
     /**
      * Handle window resize
