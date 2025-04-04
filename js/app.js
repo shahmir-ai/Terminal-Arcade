@@ -189,8 +189,16 @@ this.transitionOverlay = document.getElementById('transition-overlay');
             this.showUsernameModal();
         }
         
+    // Initialize FPS capping variables
+    this.fpsInterval = 1000 / 60; // Target 60 FPS
+    this.then = performance.now();
+    this.startTime = this.then;
+    
+
+
+
         // Start animation loop
-        this.animate();
+        requestAnimationFrame(this.animate);
 
         // Add this line:
 this.setupMobileControls(); // Set up mobile touch controls if on a mobile device
@@ -3307,98 +3315,97 @@ easeOutQuad(t) {
 }
 
 
+
 /**
- * Animation loop with 60 FPS cap
+ * Animation loop with proper 60 FPS cap
  */
-animate() {
-    // Request next frame first to ensure smooth animation
+animate(timestamp) {
+    // Request next frame immediately to maintain smooth timing
     requestAnimationFrame(this.animate);
-
-    // Get current time
-    const now = performance.now();
     
-    // Calculate time since last frame
-    const elapsed = now - (this.lastFrameTime || now - 16.7);
-    
-    // Skip this frame if less than 16.7ms has passed (enforcing ~60 FPS)
-    if (elapsed < 16.7) {
-        return;
+    // If we haven't initialized FPS timing yet
+    if (!this.fpsInterval) {
+        this.fpsInterval = 1000 / 60; // Target exactly 60 FPS
+        this.then = timestamp;
+        this.startTime = timestamp;
     }
     
-    // Update the last frame time
-    this.lastFrameTime = now;
-
-    // Handle level-specific updates and movement
-    if (this.currentLevel === 'arcade') {
-        // Arcade level handles its own movement and updates
-        this.handleMovement(); // Call the main movement handler
-        this.updateAnimatedScreens();
-    } else if (this.currentLevel === 'corridor' && this.levelManager?.corridorLevel?.update) {
-        // Corridor level handles its own movement via its update function
-        this.levelManager.corridorLevel.update();
-    } else if (this.currentLevel === 'real_pacman' && this.levelManager?.realPacmanLevel?.update) {
-        // Real Pacman level will handle its own movement via its update function
-        this.levelManager.realPacmanLevel.update();
-    } else if (this.currentLevel === 'real_space_invaders' && this.levelManager?.realSpaceInvadersLevel?.update) {
-        // Real Space Invaders level handles its own movement via its update function
-        this.levelManager.realSpaceInvadersLevel.update();
-    } else if (this.currentLevel === 'real_pong' && this.levelManager?.realPongLevel?.update) {
-        // Real Pong level handles its own movement via its update function
-        this.levelManager.realPongLevel.update();
-    } else if (this.currentLevel === 'real_asteroids' && this.levelManager?.realAsteroidsLevel?.update) {
-        // Real Asteroids level handles its own movement via its update function
-        this.levelManager.realAsteroidsLevel.update();
-    } else if (this.currentLevel === 'real_snake' && this.levelManager?.realSnakeLevel?.update) {
-        // Real Snake level handles its own movement via its update function
-        this.levelManager.realSnakeLevel.update();
-    } else if (this.currentLevel === 'real_frogger' && this.levelManager?.realFroggerLevel?.update) {
-        // Real Frogger level handles its own movement via its update function
-        this.levelManager.realFroggerLevel.update();
-    } else if (this.currentLevel === 'final_room' && this.levelManager?.finalRoomLevel?.update) {
-        // Final Room level handles its own movement via its update function
-        this.levelManager.finalRoomLevel.update();
-    }
-
-    // Update FPS counter
-    this.updateFpsCounter(now);
-
-    // Update controls if they exist (OrbitControls for debugging)
-    if (this.controls) {
-        this.controls.update();
-    }
-
-    // Animate portal if it exists
-    if (this.returnPortal) {
-        // Rotate the ring slowly
-        if (this.portalRing) {
-            this.portalRing.rotation.z += this.portalRotationSpeed;
+    // Calculate elapsed time since last frame
+    const now = timestamp;
+    const elapsed = now - this.then;
+    
+    // Only update if enough time has passed (16.67ms for 60 FPS)
+    if (elapsed > this.fpsInterval) {
+        // Adjust time tracking to maintain proper timing
+        this.then = now - (elapsed % this.fpsInterval);
+        
+        // Handle level-specific updates and movement
+        if (this.currentLevel === 'arcade') {
+            this.handleMovement();
+            this.updateAnimatedScreens();
+        } else if (this.currentLevel === 'corridor' && this.levelManager?.corridorLevel?.update) {
+            this.levelManager.corridorLevel.update();
+        } else if (this.currentLevel === 'real_pacman' && this.levelManager?.realPacmanLevel?.update) {
+            this.levelManager.realPacmanLevel.update();
+        } else if (this.currentLevel === 'real_space_invaders' && this.levelManager?.realSpaceInvadersLevel?.update) {
+            this.levelManager.realSpaceInvadersLevel.update();
+        } else if (this.currentLevel === 'real_pong' && this.levelManager?.realPongLevel?.update) {
+            this.levelManager.realPongLevel.update();
+        } else if (this.currentLevel === 'real_asteroids' && this.levelManager?.realAsteroidsLevel?.update) {
+            this.levelManager.realAsteroidsLevel.update();
+        } else if (this.currentLevel === 'real_snake' && this.levelManager?.realSnakeLevel?.update) {
+            this.levelManager.realSnakeLevel.update();
+        } else if (this.currentLevel === 'real_frogger' && this.levelManager?.realFroggerLevel?.update) {
+            this.levelManager.realFroggerLevel.update();
+        } else if (this.currentLevel === 'final_room' && this.levelManager?.finalRoomLevel?.update) {
+            this.levelManager.finalRoomLevel.update();
         }
 
-        // Animate particles
-        if (this.portalParticles) {
-            const positions = this.portalParticles.geometry.attributes.position.array;
-            const particleCount = positions.length / 3;
+        // Update FPS counter
+        this.updateFpsCounter(performance.now());
 
-            for (let i = 0; i < particleCount; i++) {
-                // Move particles in a gentle floating pattern
-                positions[i * 3 + 2] = Math.sin((now / 1000) + i * 0.1) * 0.1;
+        // Update controls if they exist
+        if (this.controls) {
+            this.controls.update();
+        }
 
-                // Occasionally move particles inward/outward
-                if (Math.random() < 0.01) {
-                    const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
-                    const radius = Math.random() * 1.3;
-                    positions[i * 3] = Math.cos(angle) * radius;
-                    positions[i * 3 + 1] = Math.sin(angle) * radius;
-                }
+        // Animate portal if it exists
+        if (this.returnPortal) {
+            // Rotate the ring slowly
+            if (this.portalRing) {
+                this.portalRing.rotation.z += this.portalRotationSpeed;
             }
 
-            this.portalParticles.geometry.attributes.position.needsUpdate = true;
-        }
-    }
+            // Animate particles
+            if (this.portalParticles) {
+                const positions = this.portalParticles.geometry.attributes.position.array;
+                const particleCount = positions.length / 3;
 
-    // Render the scene
-    this.renderer.render(this.scene, this.camera);
+                for (let i = 0; i < particleCount; i++) {
+                    // Move particles in a gentle floating pattern
+                    positions[i * 3 + 2] = Math.sin((now / 1000) + i * 0.1) * 0.1;
+
+                    // Occasionally move particles inward/outward
+                    if (Math.random() < 0.01) {
+                        const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
+                        const radius = Math.random() * 1.3;
+                        positions[i * 3] = Math.cos(angle) * radius;
+                        positions[i * 3 + 1] = Math.sin(angle) * radius;
+                    }
+                }
+
+                this.portalParticles.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+
+        // Render the scene
+        this.renderer.render(this.scene, this.camera);
+    }
 }
+
+
+
+
     
     /**
      * Handle window resize
