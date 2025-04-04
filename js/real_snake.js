@@ -49,7 +49,7 @@ class RealSnakeLevel {
 
         // Snake properties
         this.snake = null;
-        this.snakeSpeed = 0.06; // Units per frame
+        this.snakeSpeed = 0.075; // Units per frame
         this.snakeSegments = []; // Will hold segments if we implement multi-segment snake
         this.snakeRadius = 1.0; // Collision radius for snake
         this.snakeLength = 3.0; // Initial length of snake
@@ -149,19 +149,26 @@ class RealSnakeLevel {
         // Add some random low-poly trees for jungle atmosphere
         this.addTrees();
 
-        // Add a skybox/ceiling above the play area
-        const skyGeometry = new THREE.BoxGeometry(this.GROUND_SIZE, this.ROOM_HEIGHT, this.GROUND_SIZE);
-        const skyMaterial = new THREE.MeshBasicMaterial({
-            color: 0x87CEEB, // Sky blue
-            side: THREE.BackSide // Render on inside of box
-        });
-        
-        const skybox = new THREE.Mesh(skyGeometry, skyMaterial);
-        skybox.position.y = this.ROOM_HEIGHT / 2; // Position skybox half its height above ground
-        this.scene.add(skybox);
-        this.environmentObjects.push(skybox);
+// Add a skybox/ceiling above the play area
+const skyGeometry = new THREE.BoxGeometry(this.GROUND_SIZE, this.ROOM_HEIGHT, this.GROUND_SIZE);
+const skyMaterial = new THREE.MeshBasicMaterial({
+    color: 0x87CEEB, // Sky blue
+    side: THREE.BackSide // Render on inside of box
+});
 
-        console.log('Jungle environment created.');
+const skybox = new THREE.Mesh(skyGeometry, skyMaterial);
+skybox.position.y = this.ROOM_HEIGHT / 2; // Position skybox half its height above ground
+this.scene.add(skybox);
+this.environmentObjects.push(skybox);
+
+// Add clouds to the sky
+this.addClouds();
+
+console.log('Jungle environment created.');
+    
+    // Add grass blades to the ground
+this.addGrass();
+    
     }
 
     /**
@@ -223,6 +230,175 @@ class RealSnakeLevel {
         console.log(`Added ${treeCount} trees to jungle environment`);
     }
 
+
+    /**
+ * Add clouds to the sky
+ */
+addClouds() {
+    console.log('Adding clouds to sky...');
+    
+    const cloudCount = 15; // Number of clouds
+    const cloudHeight = this.ROOM_HEIGHT * 0.8; // Cloud height
+    
+    // Create cloud material
+    const cloudMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 1.0,
+        metalness: 0.0,
+        transparent: true,
+        opacity: 0.8
+    });
+    
+    // Helper to create a cloud puff
+    const createCloudPuff = (size) => {
+        const puffGeom = new THREE.SphereGeometry(size, 7, 7);
+        return new THREE.Mesh(puffGeom, cloudMaterial);
+    };
+    
+    // Helper to create a complete cloud from several puffs
+    const createCloud = (x, y, z, scale) => {
+        const cloud = new THREE.Group();
+        
+        // Create central puff
+        const mainPuff = createCloudPuff(1.5 * scale);
+        cloud.add(mainPuff);
+        
+        // Add smaller surrounding puffs
+        const puffCount = 5 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < puffCount; i++) {
+            const puffSize = (0.6 + Math.random() * 0.8) * scale;
+            const puff = createCloudPuff(puffSize);
+            
+            // Position around center
+            const angle = (i / puffCount) * Math.PI * 2;
+            const radius = (0.8 + Math.random() * 0.5) * scale;
+            puff.position.set(
+                Math.cos(angle) * radius,
+                (Math.random() - 0.5) * scale,
+                Math.sin(angle) * radius
+            );
+            
+            cloud.add(puff);
+        }
+        
+        // Position the cloud
+        cloud.position.set(x, y, z);
+        
+        // Add slight movement animation data
+        cloud.userData = {
+            originalX: x,
+            originalZ: z,
+            driftSpeed: 0.05 + Math.random() * 0.1,
+            driftAmount: 1 + Math.random() * 2,
+            driftOffset: Math.random() * Math.PI * 2
+        };
+        
+        return cloud;
+    };
+    
+    // Create clouds group
+    this.clouds = new THREE.Group();
+    
+    // Add random clouds
+    for (let i = 0; i < cloudCount; i++) {
+        // Random position within sky area
+        const x = (Math.random() - 0.5) * this.GROUND_SIZE * 0.8;
+        const z = (Math.random() - 0.5) * this.GROUND_SIZE * 0.8;
+        
+        // Random scale
+        const scale = 1.5 + Math.random() * 1.5;
+        
+        // Create cloud and add to group
+        const cloud = createCloud(x, cloudHeight, z, scale);
+        this.clouds.add(cloud);
+    }
+    
+    // Add all clouds to scene
+    this.scene.add(this.clouds);
+    this.environmentObjects.push(this.clouds);
+    
+    console.log('Clouds added to sky.');
+}
+
+
+
+    /**
+ * Add grass blades to the ground
+ */
+addGrass() {
+    console.log('Adding grass blades...');
+    
+    const grassCount = 500; // Number of grass patches
+    const bladesPerPatch = 5; // Number of blades per patch
+    
+    // Create grass material
+    const grassMaterial = new THREE.MeshStandardMaterial({
+        color: 0x7CFC00,  // Bright green
+        roughness: 1.0,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+    });
+    
+    // Grass patch group to hold all blades
+    const grassPatches = new THREE.Group();
+    
+    // Helper to create a single grass blade
+    const createGrassBlade = (x, z, height, width, angle) => {
+        // Create a simple blade as a plane
+        const bladeGeom = new THREE.PlaneGeometry(width, height);
+        const blade = new THREE.Mesh(bladeGeom, grassMaterial);
+        
+        // Position at given coordinates, half-height above ground
+        blade.position.set(x, height / 2, z);
+        
+        // Random rotation for natural look
+        blade.rotation.y = angle;
+        
+        // Random slight bend
+        blade.rotation.x = Math.random() * 0.2;
+        
+        return blade;
+    };
+    
+    // Create grass patches across the ground
+    for (let i = 0; i < grassCount; i++) {
+        // Random position within the ground area (with margin)
+        const x = (Math.random() - 0.5) * (this.GROUND_SIZE - 2);
+        const z = (Math.random() - 0.5) * (this.GROUND_SIZE - 2);
+        
+        // Create a small group of blades at this position
+        for (let j = 0; j < bladesPerPatch; j++) {
+            // Small random offset within patch
+            const offsetX = (Math.random() - 0.5) * 0.5;
+            const offsetZ = (Math.random() - 0.5) * 0.5;
+            
+            // Random height and width
+            const height = 0.3 + Math.random() * 0.4;
+            const width = 0.05 + Math.random() * 0.05;
+            
+            // Random angle
+            const angle = Math.random() * Math.PI * 2;
+            
+            // Create blade and add to group
+            const blade = createGrassBlade(
+                x + offsetX, 
+                z + offsetZ, 
+                height, 
+                width, 
+                angle
+            );
+            
+            grassPatches.add(blade);
+        }
+    }
+    
+    // Add all grass to scene
+    this.scene.add(grassPatches);
+    this.environmentObjects.push(grassPatches);
+    
+    console.log('Grass blades added to ground.');
+}
+
     /**
      * Set up lighting for the jungle scene
      */
@@ -250,53 +426,234 @@ class RealSnakeLevel {
         console.log('Jungle lighting setup complete.');
     }
 
-    /**
-     * Create the AI snake
-     */
-    createSnake() {
-        console.log('Creating snake...');
+  /**
+ * Create the AI snake with improved appearance
+ */
+createSnake() {
+    console.log('Creating snake...');
+    
+    // Create snake group to hold all parts
+    this.snake = new THREE.Group();
+    
+    // Snake body length
+    this.snakeLength = 6.0; // Increased from 3.0
+    
+    // Create snake body (cylinder)
+    const bodyGeometry = new THREE.CylinderGeometry(
+        this.snakeRadius,     // Top radius
+        this.snakeRadius,     // Bottom radius
+        this.snakeLength,     // Height/length
+        16,                   // Segments around radius
+        1,                    // Height segments
+        false                 // Open-ended
+    );
+    
+    // Rotate cylinder to lie flat (along z-axis)
+    bodyGeometry.rotateX(Math.PI / 2);
+    
+    // Create snake material with pattern
+    const snakeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x558B2F,      // Snake green
+        roughness: 0.7,
+        metalness: 0.2
+    });
+    
+    // Create body mesh
+    const snakeBody = new THREE.Mesh(bodyGeometry, snakeMaterial);
+    this.snake.add(snakeBody);
+    
+    // Add pattern to snake body (diamond pattern)
+    const patternGeometry = new THREE.PlaneGeometry(this.snakeLength, this.snakeRadius * 2);
+    const patternTexture = this.createSnakePatternTexture();
+    const patternMaterial = new THREE.MeshBasicMaterial({
+        map: patternTexture,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    
+    // Create top and bottom pattern plates
+    const topPattern = new THREE.Mesh(patternGeometry, patternMaterial);
+    topPattern.rotation.x = Math.PI / 2;
+    topPattern.position.y = this.snakeRadius * 0.98;
+    snakeBody.add(topPattern);
+    
+    const bottomPattern = new THREE.Mesh(patternGeometry, patternMaterial);
+    bottomPattern.rotation.x = -Math.PI / 2;
+    bottomPattern.position.y = -this.snakeRadius * 0.98;
+    snakeBody.add(bottomPattern);
+    
+    // Create rounded head
+    const headGeometry = new THREE.SphereGeometry(this.snakeRadius, 16, 16);
+    const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0x558B2F,      // Same green
+        roughness: 0.7,
+        metalness: 0.2
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.z = this.snakeLength / 2;
+    this.snake.add(head);
+    
+    // Create rounded tail
+    const tailGeometry = new THREE.SphereGeometry(this.snakeRadius, 16, 16);
+    const tailMaterial = snakeMaterial.clone();
+    const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+    tail.position.z = -this.snakeLength / 2;
+    this.snake.add(tail);
+    
+    // Add eyes (slanted angry eyes)
+    const createEye = (xOffset) => {
+        const eyeGroup = new THREE.Group();
         
-        // Create snake body (thick cylinder for simplicity)
-        const snakeGeometry = new THREE.CylinderGeometry(
-            this.snakeRadius,     // Top radius
-            this.snakeRadius,     // Bottom radius
-            this.snakeLength,     // Height/length
-            16,                   // Segments around radius
-            1,                    // Height segments
-            false                 // Open-ended
-        );
-        
-        // Rotate cylinder to lie flat (along z-axis)
-        snakeGeometry.rotateX(Math.PI / 2);
-        
-        // Create snake material
-        const snakeMaterial = new THREE.MeshStandardMaterial({
-            color: 0x558B2F,      // Snake green
-            roughness: 0.7,
-            metalness: 0.2
+        // White of eye
+        const eyeGeometry = new THREE.SphereGeometry(this.snakeRadius * 0.3, 12, 12);
+        const eyeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.2,
+            metalness: 0.3
         });
+        const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        eyeGroup.add(eye);
         
-        // Create snake mesh
-        this.snake = new THREE.Mesh(snakeGeometry, snakeMaterial);
         
-        // Position the snake away from player start position
-        this.snake.position.set(-10, this.snakeHeight, -10);
-        this.snake.lookAt(0, this.snakeHeight, 0); // Initially look toward center
+
+// Pupil (black)
+const pupilGeometry = new THREE.SphereGeometry(this.snakeRadius * 0.15, 8, 8);
+const pupilMaterial = new THREE.MeshStandardMaterial({
+    color: 0x000000,
+    roughness: 0.1,
+    metalness: 0.1
+});
+const pupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+pupil.position.z = this.snakeRadius * 0.2;  // FIXED: Now facing forward
+pupil.position.x = -this.snakeRadius * 0.05; // Slightly to center for angry look
+eyeGroup.add(pupil);
+
         
-        // Add property to track snake's apple count
-        this.snake.appleCount = 0;
+        // Position and rotate eye (for angry slant)
+        eyeGroup.position.set(xOffset, this.snakeRadius * 0.4, this.snakeLength / 2 + this.snakeRadius * 0.7);
+        eyeGroup.rotation.x = -Math.PI / 8;  // Angry slant downward
+        eyeGroup.rotation.y = xOffset > 0 ? Math.PI / 8 : -Math.PI / 8; // Slant inward
         
-        // Add to scene
-        this.scene.add(this.snake);
-        
-        console.log('Snake created and positioned.');
+        return eyeGroup;
+    };
+    
+    // Add left and right eyes
+    const leftEye = createEye(-this.snakeRadius * 0.5);
+    const rightEye = createEye(this.snakeRadius * 0.5);
+    this.snake.add(leftEye);
+    this.snake.add(rightEye);
+    
+    // Add tongue
+    const tongueGroup = new THREE.Group();
+    
+    // Tongue base
+    const tongueGeometry = new THREE.BoxGeometry(this.snakeRadius * 0.2, this.snakeRadius * 0.05, this.snakeRadius * 0.6);
+    const tongueMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF0000, // Bright red
+        roughness: 0.6,
+        metalness: 0.1
+    });
+    const tongue = new THREE.Mesh(tongueGeometry, tongueMaterial);
+    tongueGroup.add(tongue);
+    
+    // Tongue fork
+    const forkLeftGeometry = new THREE.BoxGeometry(this.snakeRadius * 0.1, this.snakeRadius * 0.05, this.snakeRadius * 0.3);
+    const forkRightGeometry = new THREE.BoxGeometry(this.snakeRadius * 0.1, this.snakeRadius * 0.05, this.snakeRadius * 0.3);
+    
+    const forkLeft = new THREE.Mesh(forkLeftGeometry, tongueMaterial);
+    forkLeft.position.set(-this.snakeRadius * 0.1, 0, this.snakeRadius * 0.4);
+    forkLeft.rotation.y = -Math.PI / 8;
+    tongueGroup.add(forkLeft);
+    
+    const forkRight = new THREE.Mesh(forkRightGeometry, tongueMaterial);
+    forkRight.position.set(this.snakeRadius * 0.1, 0, this.snakeRadius * 0.4);
+    forkRight.rotation.y = Math.PI / 8;
+    tongueGroup.add(forkRight);
+    
+    // Position tongue
+    tongueGroup.position.set(0, -this.snakeRadius * 0.3, this.snakeLength / 2 + this.snakeRadius);
+    
+    // Add tongue animation property
+    tongueGroup.userData = {
+        originalZ: tongueGroup.position.z,
+        flickerOffset: Math.random() * Math.PI * 2,
+        flickerSpeed: 2,
+        flickerAmount: 0.2
+    };
+    
+    this.snake.add(tongueGroup);
+    this.snakeTongue = tongueGroup; // Store reference for animation
+    
+    // Position the snake away from player start position
+    this.snake.position.set(-10, this.snakeHeight, -10);
+    this.snake.lookAt(0, this.snakeHeight, 0); // Initially look toward center
+    
+    // Add property to track snake's apple count
+    this.snake.appleCount = 0;
+    
+// Ensure collision properties are maintained - ADD THIS LINE HERE
+this.snake.cylinderLength = this.snakeLength; // Store for collision detection
+
+
+    // Add to scene
+    this.scene.add(this.snake);
+    
+    console.log('Snake created and positioned with improved appearance.');
+}
+
+/**
+ * Create a pattern texture for the snake
+ */
+createSnakePatternTexture() {
+    // Create a canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with transparent background
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw diamond pattern
+    ctx.fillStyle = 'rgba(50, 50, 10, 0.7)';
+    
+    const diamondWidth = 40;
+    const diamondHeight = 60;
+    
+    for (let x = 0; x < canvas.width; x += diamondWidth * 2) {
+        for (let y = 0; y < canvas.height; y += diamondHeight) {
+            const offsetX = (y / diamondHeight) % 2 === 0 ? 0 : diamondWidth;
+            
+            // Draw diamond
+            ctx.beginPath();
+            ctx.moveTo(x + offsetX, y);
+            ctx.lineTo(x + offsetX + diamondWidth / 2, y + diamondHeight / 2);
+            ctx.lineTo(x + offsetX, y + diamondHeight);
+            ctx.lineTo(x + offsetX - diamondWidth / 2, y + diamondHeight / 2);
+            ctx.closePath();
+            ctx.fill();
+        }
     }
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    
+    return texture;
+}
+
+
+
     
     /**
      * Update snake movement to follow the current apple
      */
     updateSnake() {
         if (!this.snake || !this.apple || this.isGameOver) return;
+
         
         // Get direction from snake to apple
         const direction = new THREE.Vector3();
@@ -343,54 +700,89 @@ class RealSnakeLevel {
             if (this.apple.material) this.apple.material.dispose();
         }
         
-        // Create apple geometry (sphere)
-        const appleGeometry = new THREE.SphereGeometry(this.appleRadius, 16, 16);
+
+// Replace from the line "// Create apple geometry (sphere)" to the line before "// Add a simple bobbing animation"
+// Create better looking apple geometry
+const appleGroup = new THREE.Group();
         
-        // Create apple material (red and slightly glowing)
-        const appleMaterial = new THREE.MeshStandardMaterial({
-            color: 0xff0000,      // Red
-            emissive: 0xff0000,   // Red glow
-            emissiveIntensity: 0.3, // Subtle glow
-            roughness: 0.5,
-            metalness: 0.8        // Slightly shiny
-        });
-        
-        // Create apple mesh
-        this.apple = new THREE.Mesh(appleGeometry, appleMaterial);
-        
-        // Find a valid position for the apple
-        let isValidPosition = false;
-        let attempts = 0;
-        const maxAttempts = 50; // Prevent infinite loop
-        
-        while (!isValidPosition && attempts < maxAttempts) {
-            // Generate random position within play area (with margin)
-            const x = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
-            const z = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
-            
-            // Check distance from snake
-            const distanceToSnake = new THREE.Vector2(x - this.snake.position.x, z - this.snake.position.z).length();
-            
-            // Check distance from player
-            const distanceToPlayer = new THREE.Vector2(x - this.camera.position.x, z - this.camera.position.z).length();
-            
-            // Position is valid if it's far enough from both snake and player
-            if (distanceToSnake > this.minAppleDistance && distanceToPlayer > this.minAppleDistance) {
-                isValidPosition = true;
-                this.apple.position.set(x, this.appleRadius, z); // Position apple just above ground
-            }
-            
-            attempts++;
-        }
-        
-        // If we couldn't find a valid position, just place it somewhere
-        if (!isValidPosition) {
-            console.log('Could not find optimal apple position, placing randomly.');
-            const x = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
-            const z = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
-            this.apple.position.set(x, this.appleRadius, z);
-        }
-        
+// Apple body (slightly elongated sphere)
+const appleBodyGeom = new THREE.SphereGeometry(this.appleRadius, 16, 16);
+appleBodyGeom.scale(1, 1.1, 1); // Slightly taller
+const appleMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff0000,      // Red
+    emissive: 0xff0000,   // Red glow
+    emissiveIntensity: 0.2, // Subtle glow
+    roughness: 0.7,
+    metalness: 0.2        // Slightly shiny
+});
+const appleBody = new THREE.Mesh(appleBodyGeom, appleMaterial);
+appleGroup.add(appleBody);
+
+// Apple stem
+const stemGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8);
+const stemMaterial = new THREE.MeshStandardMaterial({
+    color: 0x8B4513,  // Brown
+    roughness: 0.9
+});
+const stem = new THREE.Mesh(stemGeom, stemMaterial);
+stem.position.y = this.appleRadius + 0.05;
+appleGroup.add(stem);
+
+// Small leaf
+const leafGeom = new THREE.PlaneGeometry(0.3, 0.15);
+const leafMaterial = new THREE.MeshStandardMaterial({
+    color: 0x2E8B57,  // Dark green
+    roughness: 0.8,
+    side: THREE.DoubleSide
+});
+const leaf = new THREE.Mesh(leafGeom, leafMaterial);
+leaf.position.set(0.1, this.appleRadius + 0.1, 0);
+leaf.rotation.set(0, 0, Math.PI / 4);
+appleGroup.add(leaf);
+
+// Use the group as the apple
+this.apple = appleGroup;
+// Add a simple bobbing animation userData
+this.apple.userData = { 
+    bobOffset: Math.random() * Math.PI * 2, // Random phase offset
+    bobHeight: 0.2, // Height of bob
+    bobSpeed: 1.5   // Speed of bobbing
+};
+
+// Find a valid position for the apple
+let isValidPosition = false;
+let attempts = 0;
+const maxAttempts = 50; // Prevent infinite loop
+
+while (!isValidPosition && attempts < maxAttempts) {
+    // Generate random position within play area (with margin)
+    const x = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
+    const z = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
+    
+    // Check distance from snake
+    const distanceToSnake = new THREE.Vector2(x - this.snake.position.x, z - this.snake.position.z).length();
+    
+    // Check distance from player
+    const distanceToPlayer = new THREE.Vector2(x - this.camera.position.x, z - this.camera.position.z).length();
+    
+    // Position is valid if it's far enough from both snake and player
+    if (distanceToSnake > this.minAppleDistance && distanceToPlayer > this.minAppleDistance) {
+        isValidPosition = true;
+        this.apple.position.set(x, this.appleRadius, z); // Position apple just above ground
+    }
+    
+    attempts++;
+}
+
+// If we couldn't find a valid position, just place it somewhere
+if (!isValidPosition) {
+    console.log('Could not find optimal apple position, placing randomly.');
+    const x = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
+    const z = (Math.random() - 0.5) * (this.GROUND_SIZE - this.appleSpawnMargin * 2);
+    this.apple.position.set(x, this.appleRadius, z);
+}
+
+
         // Add a simple bobbing animation by adding userData property
         this.apple.userData = { 
             bobOffset: Math.random() * Math.PI * 2, // Random phase offset
@@ -494,11 +886,18 @@ displayInstructions() {
             return;
         }
         
-        // Check if snake has eaten the apple
-        const snakeAppleDistance = new THREE.Vector2(
-            this.snake.position.x - this.apple.position.x,
-            this.snake.position.z - this.apple.position.z
-        ).length();
+      // Check if snake has eaten the apple
+// Calculate head position for better collision detection
+const snakeDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(this.snake.quaternion);
+const headPosition = this.snake.position.clone().add(
+    snakeDirection.clone().multiplyScalar(this.snakeLength / 2)
+);
+
+// Check distance from head to apple
+const snakeAppleDistance = new THREE.Vector2(
+    headPosition.x - this.apple.position.x,
+    headPosition.z - this.apple.position.z
+).length();
         
         if (snakeAppleDistance < this.snakeRadius + this.appleRadius) {
             // Snake ate the apple!
@@ -532,12 +931,15 @@ displayInstructions() {
         const playerPos = new THREE.Vector3(this.camera.position.x, 0, this.camera.position.z);
         const snakePos = new THREE.Vector3(this.snake.position.x, 0, this.snake.position.z);
         
+        
         // Project player position onto snake's axis
         // This is a simplification - for a more accurate collision we'd need to calculate
         // the minimum distance from the player to the snake's line segment
         const snakeDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(this.snake.quaternion);
-        const snakeStart = snakePos.clone().sub(snakeDirection.clone().multiplyScalar(this.snakeLength / 2));
-        const snakeEnd = snakePos.clone().add(snakeDirection.clone().multiplyScalar(this.snakeLength / 2));
+        const cylinderLength = this.snake.cylinderLength || this.snakeLength; // Use stored value or default
+        const snakeStart = snakePos.clone().sub(snakeDirection.clone().multiplyScalar(cylinderLength / 2));
+        const snakeEnd = snakePos.clone().add(snakeDirection.clone().multiplyScalar(cylinderLength / 2));
+        
         
         const snakeLength = snakeEnd.clone().sub(snakeStart).length();
         const t = Math.max(0, Math.min(1, playerPos.clone().sub(snakeStart).dot(snakeEnd.clone().sub(snakeStart)) / snakeLength / snakeLength));
@@ -630,6 +1032,32 @@ setTimeout(() => {
             const bobPosition = this.appleRadius + Math.sin((time * bobSpeed) + bobOffset) * bobHeight;
             this.apple.position.y = bobPosition;
         }
+   
+   
+   // Animate clouds drifting
+if (this.clouds) {
+    const time = performance.now() / 1000; // Current time in seconds
+    
+    this.clouds.children.forEach(cloud => {
+        if (cloud.userData) {
+            const { originalX, originalZ, driftSpeed, driftAmount, driftOffset } = cloud.userData;
+            
+            // Calculate gentle drift motion
+            cloud.position.x = originalX + Math.sin((time * driftSpeed) + driftOffset) * driftAmount;
+            cloud.position.z = originalZ + Math.cos((time * driftSpeed * 0.7) + driftOffset) * (driftAmount * 0.5);
+        }
+    });
+}
+
+// Animate snake tongue
+if (this.snakeTongue) {
+    const time = performance.now() / 1000;
+    const { originalZ, flickerSpeed, flickerAmount, flickerOffset } = this.snakeTongue.userData;
+    
+    // Simple in-out movement for flicking tongue
+    this.snakeTongue.position.z = originalZ - Math.abs(Math.sin((time * flickerSpeed) + flickerOffset)) * flickerAmount;
+}
+   
     }
 
     /**
