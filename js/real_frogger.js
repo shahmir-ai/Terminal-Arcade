@@ -183,8 +183,12 @@ class RealFroggerLevel {
 
 
 // Set up the scene appearance
-this.scene.background = new THREE.Color(0xCCEEFF); // Lighter blue sky
-this.scene.fog = new THREE.FogExp2(0xFFFFFF, 0.015); // Increased fog density
+this.scene.background = new THREE.Color(0x87CEEB); // Light blue sky
+this.scene.fog = new THREE.FogExp2(0xFFFFFF, 0.015); // White fog
+
+// Create the sky with clouds
+this.createSkyWithClouds();
+
 
 
             // Reset camera position and rotation for room start
@@ -417,6 +421,215 @@ createFogWalls() {
     this.createFogParticles();
     
     console.log('Fog walls created.');
+}
+
+
+
+
+/**
+ * Create a sky dome with clouds
+ */
+createSkyWithClouds() {
+    console.log('Creating sky with clouds...');
+    
+    // Remove any existing sky
+    if (this.skyDome) {
+        this.scene.remove(this.skyDome);
+        if (this.skyDome.geometry) this.skyDome.geometry.dispose();
+        if (this.skyDome.material) this.skyDome.material.dispose();
+    }
+    
+    // Create a large dome for the sky
+    const skyRadius = Math.max(this.ROOM_WIDTH, this.ROOM_LENGTH) * 1.2;
+    const skyGeometry = new THREE.SphereGeometry(skyRadius, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+    
+    // Create canvas for sky with gradient and clouds
+    const skyTexture = this.createSkyTexture();
+    
+    // Create sky material with the texture
+    const skyMaterial = new THREE.MeshBasicMaterial({
+        map: skyTexture,
+        side: THREE.BackSide, // Show on the inside of the dome
+        fog: false // Sky shouldn't be affected by fog
+    });
+    
+    // Create the sky dome and position it
+    this.skyDome = new THREE.Mesh(skyGeometry, skyMaterial);
+    this.skyDome.position.y = 0;
+    this.skyDome.rotation.y = Math.PI / 2; // Rotate so the clouds align with the level
+    this.scene.add(this.skyDome);
+    
+    // Add 3D cloud objects for additional depth
+    this.createCloudObjects();
+    
+    console.log('Sky with clouds created');
+}
+
+/**
+ * Create a sky texture with gradient and clouds
+ */
+createSkyTexture() {
+    // Create a canvas for the sky texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    
+    // Create a gradient for the sky background
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#1E90FF'); // Deep sky blue at the top
+    gradient.addColorStop(0.5, '#87CEEB'); // Sky blue in the middle
+    gradient.addColorStop(1, '#E0F7FF'); // Light cyan at the horizon
+    
+    // Fill the background with the gradient
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw some clouds
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    
+    // Function to draw a fluffy cloud
+    const drawCloud = (x, y, size) => {
+        const numCircles = 5 + Math.floor(Math.random() * 3);
+        const baseRadius = size * (0.2 + Math.random() * 0.1);
+        
+        // Draw the main part of the cloud
+        for (let i = 0; i < numCircles; i++) {
+            const offsetX = (Math.random() - 0.5) * size;
+            const offsetY = (Math.random() - 0.5) * size * 0.5;
+            const radius = baseRadius * (0.7 + Math.random() * 0.6);
+            
+            ctx.beginPath();
+            ctx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Draw the bottom of the cloud
+        ctx.beginPath();
+        ctx.ellipse(x, y + baseRadius * 0.5, size * 0.7, baseRadius * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+    };
+    
+    // Draw various clouds of different sizes
+    for (let i = 0; i < 15; i++) {
+        const x = Math.random() * canvas.width;
+        const y = (0.2 + Math.random() * 0.4) * canvas.height; // Keep clouds in the middle to upper part
+        const size = 50 + Math.random() * 100;
+        
+        // Draw with slight transparency for variety
+        ctx.globalAlpha = 0.7 + Math.random() * 0.3;
+        drawCloud(x, y, size);
+    }
+    
+    // Reset alpha
+    ctx.globalAlpha = 1.0;
+    
+    // Create and return a THREE.js texture from the canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+}
+
+/**
+ * Create 3D cloud objects for additional depth
+ */
+createCloudObjects() {
+    // Store cloud objects for animation and cleanup
+    this.cloudObjects = [];
+    
+    // Cloud material
+    const cloudMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFFFFF,
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide
+    });
+    
+    // Create several cloud objects
+    const numClouds = 10;
+    const roomSize = Math.max(this.ROOM_WIDTH, this.ROOM_LENGTH);
+    
+    for (let i = 0; i < numClouds; i++) {
+        // Create a group to hold the cloud parts
+        const cloudGroup = new THREE.Group();
+        
+        // Randomize position above and around the room
+        const x = (Math.random() - 0.5) * this.ROOM_WIDTH * 2;
+        const y = this.ROOM_HEIGHT + 10 + Math.random() * 20;
+        const z = (Math.random() - 0.5) * this.ROOM_LENGTH * 2;
+        
+        cloudGroup.position.set(x, y, z);
+        
+        // Randomize cloud scale
+        const scale = 5 + Math.random() * 10;
+        cloudGroup.scale.set(scale, scale * 0.6, scale);
+        
+        // Randomize rotation
+        cloudGroup.rotation.y = Math.random() * Math.PI * 2;
+        
+        // Add several sphere geometries to create a fluffy cloud
+        const numPuffs = 5 + Math.floor(Math.random() * 5);
+        for (let j = 0; j < numPuffs; j++) {
+            const puffSize = 1 + Math.random() * 0.5;
+            const puffGeometry = new THREE.SphereGeometry(puffSize, 8, 8);
+            const puff = new THREE.Mesh(puffGeometry, cloudMaterial);
+            
+            // Position each puff relative to the cloud group center
+            const puffX = (Math.random() - 0.5) * 2;
+            const puffY = (Math.random() - 0.5) * 1;
+            const puffZ = (Math.random() - 0.5) * 2;
+            puff.position.set(puffX, puffY, puffZ);
+            
+            // Add to cloud group
+            cloudGroup.add(puff);
+        }
+        
+        // Add the cloud group to the scene
+        this.scene.add(cloudGroup);
+        
+        // Store reference for animation
+        this.cloudObjects.push({
+            cloud: cloudGroup,
+            speed: 0.005 + Math.random() * 0.01,
+            direction: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.1,
+                0,
+                (Math.random() - 0.5) * 0.1
+            ).normalize()
+        });
+    }
+}
+
+/**
+ * Update cloud positions for gentle movement
+ */
+updateClouds() {
+    if (!this.cloudObjects) return;
+    
+    const roomSize = Math.max(this.ROOM_WIDTH, this.ROOM_LENGTH) * 1.5;
+    
+    this.cloudObjects.forEach(cloudObj => {
+        const cloud = cloudObj.cloud;
+        const speed = cloudObj.speed;
+        const direction = cloudObj.direction;
+        
+        // Move the cloud in its direction
+        cloud.position.x += direction.x * speed;
+        cloud.position.z += direction.z * speed;
+        
+        // Rotate slightly for gentle swaying
+        cloud.rotation.y += 0.0005;
+        
+        // Check if cloud is too far from the room
+        if (cloud.position.x > roomSize || cloud.position.x < -roomSize ||
+            cloud.position.z > roomSize || cloud.position.z < -roomSize) {
+            // Reset to opposite side to create infinite clouds
+            if (Math.abs(cloud.position.x) > Math.abs(cloud.position.z)) {
+                cloud.position.x = -Math.sign(cloud.position.x) * roomSize;
+            } else {
+                cloud.position.z = -Math.sign(cloud.position.z) * roomSize;
+            }
+        }
+    });
 }
 
 /**
@@ -1408,6 +1621,11 @@ if (this.waterZone && this.waterVertices) {
         
         // Check if player is in water (will be deadly when no logs are available and grace period expires)
         this.inWaterZone = this.getCurrentZone(this.camera.position) === 'water';
+    // Update cloud positions
+this.updateClouds();
+
+    
+    
     }
     
     /**
@@ -1974,7 +2192,42 @@ createWoodMaterial(baseColor, roughnessFactor) {
         });
         this.roomLights = [];
 
+
+        // Clean up sky dome
+if (this.skyDome) {
+    this.scene.remove(this.skyDome);
+    if (this.skyDome.geometry) this.skyDome.geometry.dispose();
+    if (this.skyDome.material && this.skyDome.material.map) this.skyDome.material.map.dispose();
+    if (this.skyDome.material) this.skyDome.material.dispose();
+}
+
+// Clean up cloud objects
+if (this.cloudObjects) {
+    this.cloudObjects.forEach(cloudObj => {
+        const cloud = cloudObj.cloud;
+        this.scene.remove(cloud);
+        
+        // Dispose of all child geometries and materials
+        cloud.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(material => material.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
+    });
+    this.cloudObjects = [];
+}
+
+
         console.log('Real Frogger level unloaded.');
+    
+    
+    
+    
     }
 }
 
