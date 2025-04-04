@@ -1301,16 +1301,23 @@ setTimeout(() => {
                                 // Mark this door as completed with loss result
                                 this.completedDoors[gameName] = 'loss';
                                 
-                                // Add a slight delay to show message before starting death sequence
-                                setTimeout(() => {
-                                    // Start the death sequence
-                                    this.startAsteroidsDoorDeathSequence();
-                                    
-                                    // Reduce player lives
-                                    this.playerLives--;
-                                    this.updateLivesDisplay();
-                                }, 1200);
-                            }
+// Add a slight delay to show message before starting death sequence
+setTimeout(() => {
+    // Start the death sequence
+    this.startAsteroidsDoorDeathSequence();
+    
+    // Reduce player lives
+    this.playerLives--;
+    this.updateLivesDisplay();
+    
+    // Check if this was the last life
+    if (this.playerLives <= 0) {
+        // Wait for death sequence to complete before triggering permanent game over
+        setTimeout(() => {
+            this.triggerPermanentGameOver();
+        }, 10000); // Asteroids sequence takes about 8 seconds
+    }
+}, 200);                            }
 
                             foundInteractive = true;
                         } 
