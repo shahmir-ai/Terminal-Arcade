@@ -3782,6 +3782,8 @@ showInteractionFeedback(message, isGameOver = false) {
         feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
     } else if (message === 'OUT OF ORDER') {
         feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
+    } else if (message === 'YOU LOST THIS GAME') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
     } else {
         feedbackElement.style.color = '#00FF00'; // Green for normal messages
     }

@@ -68,6 +68,8 @@ class RealSnakeLevel {
 
         // Bind methods
         this.init = this.init.bind(this);
+
+        this.init = this.init.bind(this);
         this.update = this.update.bind(this);
         this.handleMovement = this.handleMovement.bind(this);
         this.checkCollision = this.checkCollision.bind(this);
@@ -80,6 +82,8 @@ class RealSnakeLevel {
         this.checkPlayerSnakeCollision = this.checkPlayerSnakeCollision.bind(this);
         this.handleGameOver = this.handleGameOver.bind(this);
         this.unload = this.unload.bind(this);
+        this.displayInstructions = this.displayInstructions.bind(this);
+
     }
 
     /**
@@ -113,6 +117,9 @@ class RealSnakeLevel {
         if (this.app) {
             this.app.enableControls();
         }
+
+            // Display instructions after a short delay
+    setTimeout(() => this.displayInstructions(), 1000);
 
         console.log('Real Snake level initialized');
         return this;
@@ -397,6 +404,56 @@ class RealSnakeLevel {
         console.log(`Apple spawned at position: (${this.apple.position.x.toFixed(2)}, ${this.apple.position.y.toFixed(2)}, ${this.apple.position.z.toFixed(2)})`);
     }
     
+
+
+/**
+ * Display game instructions text with jungle theme
+ */
+displayInstructions() {
+    // Create a container for the text
+    const instructionsContainer = document.createElement('div');
+    instructionsContainer.id = 'snake-game-instructions';
+    instructionsContainer.style.position = 'fixed';
+    instructionsContainer.style.top = '30%';
+    instructionsContainer.style.left = '0';
+    instructionsContainer.style.width = '100%';
+    instructionsContainer.style.textAlign = 'center';
+    instructionsContainer.style.color = '#4CAF50'; // Green text to match jungle theme
+    instructionsContainer.style.fontFamily = "'Press Start 2P', monospace"; // Retro font
+    instructionsContainer.style.fontSize = '24px';
+    instructionsContainer.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)'; // Dark shadow for jungle feel
+    instructionsContainer.style.zIndex = '1000';
+    instructionsContainer.style.pointerEvents = 'none'; // Prevent interaction
+    instructionsContainer.style.opacity = '0';
+    instructionsContainer.style.transition = 'opacity 1s ease-in-out';
+    
+    // Add the message
+    instructionsContainer.innerHTML = 'Eat 5 apples before the snake.<br>Don\'t touch the snake.';
+    
+    // Add to document
+    document.body.appendChild(instructionsContainer);
+    
+    // Fade in
+    setTimeout(() => {
+        instructionsContainer.style.opacity = '1';
+        
+        // Fade out after 5 seconds
+        setTimeout(() => {
+            instructionsContainer.style.opacity = '0';
+            
+            // Remove from DOM after fade out
+            setTimeout(() => {
+                if (instructionsContainer.parentNode) {
+                    instructionsContainer.parentNode.removeChild(instructionsContainer);
+                }
+            }, 1000);
+        }, 5000);
+    }, 500);
+}
+
+
+
+
     /**
      * Check if player or snake has collided with the apple
      */

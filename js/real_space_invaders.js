@@ -157,6 +157,8 @@ class RealSpaceInvadersLevel {
         if (this.app) {
             this.app.enableControls();
         }
+    // Display instructions after a short delay
+    setTimeout(() => this.displayInstructions(), 1000);
 
         console.log('Real Space Invaders level initialized');
         return this;
@@ -701,6 +703,51 @@ enemyShoot() {
     console.log(`Enemy at column ${shooter.col} fired a laser`);
 }
     
+
+/**
+ * Display game instructions text
+ */
+displayInstructions() {
+    // Create a container for the text
+    const instructionsContainer = document.createElement('div');
+    instructionsContainer.id = 'space-invaders-instructions';
+    instructionsContainer.style.position = 'fixed';
+    instructionsContainer.style.top = '30%';
+    instructionsContainer.style.left = '0';
+    instructionsContainer.style.width = '100%';
+    instructionsContainer.style.textAlign = 'center';
+    instructionsContainer.style.color = '#00FFFF'; // Cyan text to match your laser color
+    instructionsContainer.style.fontFamily = "'Press Start 2P', monospace"; // Retro font
+    instructionsContainer.style.fontSize = '24px';
+    instructionsContainer.style.textShadow = '0 0 10px #00FFFF'; // Cyan glow
+    instructionsContainer.style.zIndex = '1000';
+    instructionsContainer.style.pointerEvents = 'none'; // Prevent interaction
+    instructionsContainer.style.opacity = '0';
+    instructionsContainer.style.transition = 'opacity 1s ease-in-out';
+    
+    // Add the message
+    instructionsContainer.innerHTML = 'Press SPACE to shoot.<br>Don\'t die.';
+    
+    // Add to document
+    document.body.appendChild(instructionsContainer);
+    
+    // Fade in
+    setTimeout(() => {
+        instructionsContainer.style.opacity = '1';
+        
+        // Fade out after 5 seconds
+        setTimeout(() => {
+            instructionsContainer.style.opacity = '0';
+            
+            // Remove from DOM after fade out
+            setTimeout(() => {
+                if (instructionsContainer.parentNode) {
+                    instructionsContainer.parentNode.removeChild(instructionsContainer);
+                }
+            }, 1000);
+        }, 5000);
+    }, 500);
+}
 
     
     /**

@@ -160,9 +160,6 @@ class RealFroggerLevel {
         this.spawnLog = this.spawnLog.bind(this);
         this.checkLogCollisions = this.checkLogCollisions.bind(this);
 
-        // Add water grace period properties
-        this.timeInWater = 0;        // Time player has been in water without standing on a log
-        this.waterGracePeriod = 250; // 0.25 seconds in milliseconds before drowning
     }
 
     /**
@@ -857,14 +854,9 @@ class RealFroggerLevel {
                 this.timeInWater += this.app.deltaTime || 16; // Default to 16ms if deltaTime not available
                 
                 // Drown if grace period exceeded
-                if (this.timeInWater > this.waterGracePeriod) {
                     this.handleGameOver("SLEEP WITH THE FISHES!");
-                }
-            } else if (this.playerOnLog) {
-                // Reset timer when player is on a log
-                this.timeInWater = 0;
+                
             }
-            // Note: we don't reset timeInWater when jumping to prevent bunny-hopping
         } else {
             // Player is out of the water zone
             this.timeInWater = 0;

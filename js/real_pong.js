@@ -90,7 +90,7 @@ this.hitCount = 0; // Track consecutive hits
 this.hitThreshold = 2; // Increase difficulty every 5 hits
 
 // Paddle AI properties  
-this.paddleSpeed = 0.22; // How fast paddles can move
+this.paddleSpeed = 0.35; // How fast paddles can move
 this.paddleMissChance = {
     front: 0.02, // 5% chance to miss initially
     back: 0.02
