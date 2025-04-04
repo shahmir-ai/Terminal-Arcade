@@ -157,15 +157,6 @@ if (options.isRespawn && options.gameResult) {
                 this.playerWins++;
                 this.updateWinCountDisplay();
                 
-                // Check if player has won all required games
-                if (this.playerWins >= this.requiredWins) {
-                    // Give a moment for the win count display to update before triggering victory sequence
-                    setTimeout(() => {
-                        this.triggerVictorySequence();
-                    }, 1500);
-                    return; // Return early to skip the regular feedback
-                }
-                
                 // Store completion using doorId instead of game name
                 this.completedDoors[options.gameResult.doorId] = 'win';
                 setTimeout(() => {
@@ -1444,26 +1435,46 @@ setTimeout(() => {
                             event.preventDefault();
 
                             foundInteractive = true;
-                        } else if (currentObject.userData.doorId === 'corridor-door-4') {
-                            // Door 4: Final Room (Locked)
-                            console.log('Interacting with Door 4 (Final Room - Currently Locked)');
+                        
 
+                        } else if (currentObject.userData.doorId === 'corridor-door-4') {
+                            // Door 4: Final Room - Check if unlocked (player has required wins)
+                            console.log('Interacting with Door 4 (Final Room)');
+                            
                             // Stop event propagation
                             event.stopPropagation();
-
-                            // Show LOCKED message
-                            this.app.showInteractionFeedback('YOU MUST SURVIVE THRICE TO ENTER');
-
-                            // Play locked sound
-                             if (this.app && typeof this.app.playSound === 'function') {
-                                this.app.playSound('doorLocked');
-                            }
-
-                            // Prevent default behavior
                             event.preventDefault();
-
+                            
+                            // Check if player has enough wins to enter
+                            if (this.playerWins >= this.requiredWins) {
+                                // Door is unlocked - trigger victory sequence
+                                console.log('Door 4 unlocked - player has required wins');
+                                this.app.showInteractionFeedback('ENTERING THE FINAL DOOR...');
+                                
+                                // Play success sound
+                                if (this.app && typeof this.app.playSound === 'function') {
+                                    this.app.playSound('interaction');
+                                }
+                                
+                                // Start victory sequence after a short delay
+                                setTimeout(() => {
+                                    this.triggerVictorySequence();
+                                }, 1500);
+                            } else {
+                                // Door is still locked
+                                console.log('Door 4 still locked - player needs more wins');
+                                this.app.showInteractionFeedback('YOU MUST SURVIVE THRICE TO ENTER');
+                                
+                                // Play locked sound
+                                if (this.app && typeof this.app.playSound === 'function') {
+                                    this.app.playSound('doorLocked');
+                                }
+                            }
+                            
                             foundInteractive = true;
-                        } else {
+                        }
+
+                         else {
                             // Original logic for other doors
                             console.log(`Door activated: ${currentObject.userData.name}`);
                             
