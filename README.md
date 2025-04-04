@@ -1,15 +1,7 @@
 # Terminal Arcade
-Vibe coded web game. Insert coin to play!
+Vibe coded web game. Insert coin to play! Just don't leave the room...
 
 [arcade.shahmir.ca](https://arcade.shahmir.ca/)
-
-Six Playable Mini-Games:
-- Frogger
-- Pong
-- Space Invaders
-- Snake FSD
-- Asteroids
-- Pac-Man
 
 Portal System: Connect to other games in the Vibeverse
 
