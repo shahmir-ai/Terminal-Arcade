@@ -1816,20 +1816,24 @@ rightArrow.addEventListener('touchend', (e) => {
     // Button event handlers
     
     // Interact button (E key)
-interactButton.addEventListener('touchstart', (e) => {
-    e.preventDefault();
+    interactButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        
+        // Check which level we're in to determine how to handle the E press
+        if (this.currentLevel === 'corridor' && this.levelManager.corridorLevel) {
+            // When in corridor, dispatch to corridor's onKeyDown directly
+            const eKeyEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
+            this.levelManager.corridorLevel.onKeyDown(eKeyEvent);
+        } else if (this.currentMiniGame) {
+            // In mini-game: Send to mini-game
+            this.keyStates['KeyE'] = true;
+        } else {
+            // Outside mini-game in main arcade: Trigger app interaction
+            const eKeyEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
+            this.onKeyDown(eKeyEvent);
+        }
+    });
     
-    // Only send E events to the appropriate context
-    if (this.currentMiniGame) {
-        // In mini-game: Send to mini-game
-        this.keyStates['KeyE'] = true;
-    } else {
-        // Outside mini-game: Trigger interaction
-        const eKeyEvent = new KeyboardEvent('keydown', { code: 'KeyE' });
-        this.onKeyDown(eKeyEvent);
-    }
-});
-
 interactButton.addEventListener('touchend', (e) => {
     e.preventDefault();
     this.keyStates['KeyE'] = false;
