@@ -94,7 +94,13 @@ this.transitionOverlay = document.getElementById('transition-overlay');
         this.lastFrameTime = 0; // For deltaTime calculation
     }
     init() {
+
+
+
+        
         console.log('Initializing Vibe Arcade...');
+        
+
         
         // Check if user is coming from a portal
         this.portalParams = this.parsePortalParams();
