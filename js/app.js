@@ -3557,11 +3557,11 @@ onKeyDown(event) {
                         // --- Handle Locked Door ---
                         this.doorInteractionAttempts++;
                         console.log(`Locked door interaction attempts: ${this.doorInteractionAttempts}`);
-                        this.showInteractionFeedback("LOCKED");
+                        this.showInteractionFeedback("LOCKED... OR IS IT?");
                         this.playSound('doorLocked'); // Play locked sound
 
-                        if (this.doorInteractionAttempts >= 9) {
-                            console.log("Door unlocked after 9 attempts.");
+                        if (this.doorInteractionAttempts >= 5) {
+                            console.log("Door unlocked after 5 attempts.");
                             this.doorLocked = false;
                             this.showInteractionFeedback("UNLOCKED"); // Optional feedback
                             // No sound on unlock itself
@@ -3792,6 +3792,8 @@ showInteractionFeedback(message, isGameOver = false) {
         feedbackElement.style.color = '#00FF00'; // Green for winning
     } else if (isGameOver) {
         feedbackElement.style.color = '#FF0000'; // Red for game over
+    } else if (message === 'LOCKED... OR IS IT?') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
     } else if (message === 'NO GOING BACK') {
         feedbackElement.style.color = '#FF0000'; // Red for "No going back" message
     } else if (message === 'LOCKED') {
