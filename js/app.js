@@ -92,6 +92,11 @@ this.transitionOverlay = document.getElementById('transition-overlay');
         this.konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
         this.konamiCodeProgress = 0;
         this.lastFrameTime = 0; // For deltaTime calculation
+
+
+        this.paint2InteractionCount = 0; // Track interactions with painting 2
+this.paint2MessageVisible = false; // Track if the painting 2 message is currently visible
+
     }
     init() {
 
@@ -3727,10 +3732,35 @@ else if (currentObject.userData && currentObject.userData.isPainting) {
         case 'paint1':
             this.showInteractionFeedback('KEEP TRYING.');
             break;
-        case 'paint2':
-            this.showInteractionFeedback('YOUR AD HERE.');
-            break;
-        case 'paint3':
+          
+            case 'paint2':
+                if (!this.paint2MessageVisible) {
+                    // First interaction or message not visible - show initial message
+                    this.paint2InteractionCount = 1;
+                    this.paint2MessageVisible = true;
+                    this.showInteractionFeedback('Comp AI - Open Source Compliance\n Automation Platform\n\n\n\nPress E again to visit link');
+                    
+                    // Set a timer to mark the message as no longer visible when it disappears
+                    clearTimeout(this.paint2Timer);
+                    this.paint2Timer = setTimeout(() => {
+                        this.paint2MessageVisible = false;
+                    }, 3000); // Same as the feedback timeout
+                } else if (this.paint2InteractionCount === 1) {
+                    // Second interaction while message is visible - redirect
+                    this.paint2InteractionCount = 0;
+                    this.paint2MessageVisible = false;
+                    clearTimeout(this.paint2Timer);
+                    
+                    this.showInteractionFeedback('Redirecting to Comp AI...');
+                    setTimeout(() => {
+                        window.location.href = 'https://trycomp.ai/?ref=arcade.shahmir.ca';
+                    }, 1500); // 1.5 seconds delay
+                }
+                break;
+            
+                
+                
+                case 'paint3':
             this.showInteractionFeedback('DO YOU KNOW THE SECRET CODE?');
             break;
         case 'paint4':
@@ -3854,14 +3884,14 @@ showInteractionFeedback(message, isGameOver = false) {
     }
     
     // Update the message
-    feedbackElement.textContent = message;
+    feedbackElement.innerText = message;
     feedbackElement.style.display = 'block';
     
-    // Hide the message after a few seconds
-    clearTimeout(this.feedbackTimeout);
-    this.feedbackTimeout = setTimeout(() => {
-        feedbackElement.style.display = 'none';
-    }, 3000);
+// Hide the message after a few seconds
+clearTimeout(this.feedbackTimeout);
+this.feedbackTimeout = setTimeout(() => {
+    feedbackElement.style.display = 'none';
+}, 3000);
 
         // Play game over sound if this is a game over message
         if (isGameOver) {
