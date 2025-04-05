@@ -75,7 +75,7 @@ this.loadLabelFont = this.loadLabelFont.bind(this); // Bind font loading method
         this.uiElementsCreated = false;
         this.livesDisplay = null;
         this.winCountDisplay = null;
-        this.playerLives = 5;
+        this.playerLives = 4;
         this.playerWins = 0;
         this.requiredWins = 3;
 
@@ -2153,7 +2153,7 @@ setTimeout(() => {
     }
     
     /**
-     * Create the lives display showing 5 heart symbols
+     * Create the lives display showing 4 heart symbols
      */
     createLivesDisplay() {
         // Create the container
