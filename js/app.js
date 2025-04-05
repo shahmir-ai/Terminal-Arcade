@@ -2723,7 +2723,7 @@ createWallDecorations() {
     // Create a function to make a flat rectangle with texture support
    // In the createWallDecorations() method, change the createWallDecor function:
 
-const createWallDecor = (name, width, height, position, rotation) => {
+   const createWallDecor = (name, width, height, position, rotation) => {
     // Create slightly raised geometry (thin box)
     const geometry = new THREE.BoxGeometry(width, height, 0.05);
     
@@ -2746,40 +2746,47 @@ const createWallDecor = (name, width, height, position, rotation) => {
         });
     }
 
-        // Create the mesh
-        const decor = new THREE.Mesh(geometry, material);
-        decor.position.copy(position);
-        decor.rotation.copy(rotation);
-        
-        // Add metadata
-        decor.name = name;
-        
-        // Load texture if available
-        const texturePath = `assets/textures/${name}.jpg`;
-        textureLoader.load(
-            texturePath,
-            // Texture loaded successfully
-            (texture) => {
-                material.map = texture;
-                material.needsUpdate = true;
-                console.log(`Loaded texture for ${name}`);
-            },
-            // Progress callback
-            undefined,
-            // Error callback
-            (error) => {
-                console.warn(`Couldn't load texture for ${name}: ${error.message}`);
-                // Set a default color if texture fails to load
-                material.color.set(name.includes('vent') ? 0x777777 : 0xF5F5DC);
-            }
-        );
-        
-        // Add to scene
-        this.scene.add(decor);
-        console.log(`Added ${name} to scene`);
-        
-        return decor;
-    };
+    // Create the mesh
+    const decor = new THREE.Mesh(geometry, material);
+    decor.position.copy(position);
+    decor.rotation.copy(rotation);
+    
+    // Add metadata
+    decor.name = name;
+    
+    // Add painting-specific userData for interaction
+    if (name.startsWith('paint')) {
+        decor.userData.isPainting = true;
+        decor.userData.paintingId = name;
+        decor.userData.interactable = true;
+    }
+    
+    // Load texture if available
+    const texturePath = `assets/textures/${name}.jpg`;
+    textureLoader.load(
+        texturePath,
+        // Texture loaded successfully
+        (texture) => {
+            material.map = texture;
+            material.needsUpdate = true;
+            console.log(`Loaded texture for ${name}`);
+        },
+        // Progress callback
+        undefined,
+        // Error callback
+        (error) => {
+            console.warn(`Couldn't load texture for ${name}: ${error.message}`);
+            // Set a default color if texture fails to load
+            material.color.set(name.includes('vent') ? 0x777777 : 0xF5F5DC);
+        }
+    );
+    
+    // Add to scene
+    this.scene.add(decor);
+    console.log(`Added ${name} to scene`);
+    
+    return decor;
+};
     
     // ===== PAINTINGS =====
     
@@ -3699,11 +3706,43 @@ else if (currentObject.userData && currentObject.userData.isReturnPortal) {
                     this.launchMiniGame(currentObject);
                     
                     foundInteractive = true;
+
+                    
                 }
                 
+
+// Check if this is a painting
+else if (currentObject.userData && currentObject.userData.isPainting) {
+    const paintingId = currentObject.userData.paintingId;
+    console.log(`Interacted with painting: ${paintingId}`);
+    
+    // Display different messages based on which painting was interacted with
+    switch (paintingId) {
+        case 'paint1':
+            this.showInteractionFeedback('KEEP TRYING.');
+            break;
+        case 'paint2':
+            this.showInteractionFeedback('YOUR AD HERE.');
+            break;
+        case 'paint3':
+            this.showInteractionFeedback('DO YOU KNOW THE SECRET CODE?');
+            break;
+        case 'paint4':
+            this.showInteractionFeedback('CONTROLS.');
+            break;
+        default:
+            this.showInteractionFeedback('An interesting painting.');
+            break;
+    }
+    foundInteractive = true;
+}
+
                 // Move up to the parent object if we haven't found an interactive object yet
                 currentObject = currentObject.parent;
             }
+            
+
+
             
             // If we didn't find any interactive object with userData
             if (!foundInteractive) {
