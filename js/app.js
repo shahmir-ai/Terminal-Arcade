@@ -96,6 +96,10 @@ this.transitionOverlay = document.getElementById('transition-overlay');
 
         this.paint2InteractionCount = 0; // Track interactions with painting 2
 this.paint2MessageVisible = false; // Track if the painting 2 message is currently visible
+this.paint4InteractionCount = 0; // Track interactions with painting 4
+this.paint4MessageVisible = false; // Track if the painting 4 message is currently visible
+
+
 
     }
     init() {
@@ -189,7 +193,8 @@ this.paint2MessageVisible = false; // Track if the painting 2 message is current
             this.showInteractionFeedback(`Welcome, ${this.username}!`);
 
               // Create a temporary invisible button that we'll auto-click to start audio
-
+// Show controls popup for portal users after a slight delay
+setTimeout(() => this.showControlsPopup(), 1500); // 1.5 second delay
 
             } else {
             // Normal game start with username modal
@@ -1570,6 +1575,10 @@ submitUsername() {
     
     // Enable controls (they were disabled while modal was showing)
     this.enableControls();
+
+// Show controls popup
+setTimeout(() => this.showControlsPopup(), 1000); // Show after 1 second to give player time to see the environment
+
 }
 
 
@@ -3575,9 +3584,20 @@ onKeyDown(event) {
                         // --- Handle Locked Door ---
                         this.doorInteractionAttempts++;
                         console.log(`Locked door interaction attempts: ${this.doorInteractionAttempts}`);
-                        this.showInteractionFeedback("LOCKED... OR IS IT?");
+                        
+                        // Different messages for each attempt
+                        if (this.doorInteractionAttempts === 1) {
+                            this.showInteractionFeedback("LOCKED... OR IS IT?");
+                        } else if (this.doorInteractionAttempts === 2) {
+                            this.showInteractionFeedback("LOCKED... MAYBE...");
+                        } else if (this.doorInteractionAttempts === 3) {
+                            this.showInteractionFeedback("LOCKED FOR SURE...");
+                        } else if (this.doorInteractionAttempts === 4) {
+                            this.showInteractionFeedback("LOCKED... UNLESS...?");
+                        }
+                        
                         this.playSound('doorLocked'); // Play locked sound
-
+                
                         if (this.doorInteractionAttempts >= 5) {
                             console.log("Door unlocked after 5 attempts.");
                             this.doorLocked = false;
@@ -3585,7 +3605,8 @@ onKeyDown(event) {
                             // No sound on unlock itself
                         }
                     } else {
-                        // --- Handle Unlocked Door ---
+                
+                                        // --- Handle Unlocked Door ---
                         console.log('Door is unlocked. Opening...');
                         this.openDoor(); // Open the door if unlocked
                         // door_open sound is handled within openDoor()
@@ -3763,9 +3784,33 @@ else if (currentObject.userData && currentObject.userData.isPainting) {
                 case 'paint3':
             this.showInteractionFeedback('DO YOU KNOW THE SECRET CODE?');
             break;
-        case 'paint4':
-            this.showInteractionFeedback('CONTROLS.');
-            break;
+
+
+            case 'paint4':
+                if (!this.paint4MessageVisible) {
+                    // First interaction or message not visible - show initial message
+                    this.paint4InteractionCount = 1;
+                    this.paint4MessageVisible = true;
+                    this.showInteractionFeedback('Softgen AI - Build Full-Stack Web Apps without coding, using AI.\n\n\n\nPress E again to visit link');
+                    
+                    // Set a timer to mark the message as no longer visible when it disappears
+                    clearTimeout(this.paint4Timer);
+                    this.paint4Timer = setTimeout(() => {
+                        this.paint4MessageVisible = false;
+                    }, 3000); // Same as the feedback timeout
+                } else if (this.paint4InteractionCount === 1) {
+                    // Second interaction while message is visible - redirect
+                    this.paint4InteractionCount = 0;
+                    this.paint4MessageVisible = false;
+                    clearTimeout(this.paint4Timer);
+                    
+                    this.showInteractionFeedback('Redirecting to Softgen AI...');
+                    setTimeout(() => {
+                        window.location.href = 'https://softgen.ai/?ref=arcade.shahmir.ca';
+                    }, 1500); // 1.5 seconds delay
+                }
+                break;
+
         default:
             this.showInteractionFeedback('An interesting painting.');
             break;
@@ -3879,6 +3924,15 @@ showInteractionFeedback(message, isGameOver = false) {
         feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
     } else if (message === 'YOU LOST THIS GAME') {
         feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
+
+    } else if (message === 'LOCKED... MAYBE...') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
+
+    } else if (message === 'LOCKED FOR SURE...') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
+
+    } else if (message === 'LOCKED... UNLESS...?') {
+        feedbackElement.style.color = '#FF0000'; // Red for "Out of order" message
     } else {
         feedbackElement.style.color = '#00FF00'; // Green for normal messages
     }
@@ -3899,6 +3953,78 @@ this.feedbackTimeout = setTimeout(() => {
         }
     
 }
+
+
+
+
+
+/**
+ * Show a popup with game controls information
+ */
+showControlsPopup() {
+    // Don't show on mobile devices
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        return;
+    }
+    
+    // Check if a popup already exists
+    let popupElement = document.getElementById('controls-popup');
+    
+    // If not, create one
+    if (!popupElement) {
+        popupElement = document.createElement('div');
+        popupElement.id = 'controls-popup';
+        popupElement.style.position = 'fixed';
+        popupElement.style.top = '50%';
+        popupElement.style.left = '50%';
+        popupElement.style.transform = 'translate(-50%, -50%)';
+        popupElement.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+        popupElement.style.padding = '30px';
+        popupElement.style.borderRadius = '10px';
+        popupElement.style.border = '2px solid #00ff00';
+        popupElement.style.boxShadow = '0 0 20px rgba(0, 255, 0, 0.5)';
+        popupElement.style.color = '#FFFFFF';
+        popupElement.style.fontFamily = "'Press Start 2P', monospace";
+        popupElement.style.fontSize = '16px';
+        popupElement.style.zIndex = '2000';
+        popupElement.style.textAlign = 'left';
+        popupElement.style.width = '600px';
+                popupElement.style.maxWidth = '80%';
+        
+// Add the controls information
+popupElement.innerHTML = `
+    <h2 style="color: #00ff00; text-align: center; margin-bottom: 20px;">CONTROLS</h2>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">WASD</span> = Movement</div>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">Arrow Keys</span> = Camera</div>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">Space</span> = Jump/Shoot</div>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">E</span> = Interact</div>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">Escape</span> = Close minigames</div>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">B</span> = ?</div>
+    <div style="margin-bottom: 8px; text-align: center;"><span style="color: #00ff00;">A</span> = ?</div>
+    <div style="margin-top: 25px; text-align: center;"><span style="color: #ffff00;">Press Escape to close this window</span></div>
+`;        
+        document.body.appendChild(popupElement);
+        
+        // Add escape key listener to close the popup
+        const closeHandler = (event) => {
+            if (event.code === 'Escape') {
+                if (popupElement && document.body.contains(popupElement)) {
+                    document.body.removeChild(popupElement);
+                    window.removeEventListener('keydown', closeHandler);
+                }
+            }
+        };
+        
+        window.addEventListener('keydown', closeHandler);
+    }
+}
+
+
+
+
+
+
+
 /**
  * Launch a mini-game overlay for an arcade machine
  * 
