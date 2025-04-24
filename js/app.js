@@ -3791,7 +3791,7 @@ else if (currentObject.userData && currentObject.userData.isPainting) {
                     // First interaction or message not visible - show initial message
                     this.paint4InteractionCount = 1;
                     this.paint4MessageVisible = true;
-                    this.showInteractionFeedback('Softgen AI - Build Full-Stack Web Apps without coding, using AI.\n\n\n\nPress E again to visit link');
+                    this.showInteractionFeedback('Kortix Suna - Open-Source General AI Agent built to work like a Human.\n\n\n\nPress E again to visit link');
                     
                     // Set a timer to mark the message as no longer visible when it disappears
                     clearTimeout(this.paint4Timer);
@@ -3804,9 +3804,9 @@ else if (currentObject.userData && currentObject.userData.isPainting) {
                     this.paint4MessageVisible = false;
                     clearTimeout(this.paint4Timer);
                     
-                    this.showInteractionFeedback('Redirecting to Softgen AI...');
+                    this.showInteractionFeedback('Redirecting to Kortix Suna...');
                     setTimeout(() => {
-                        window.location.href = 'https://softgen.ai/?ref=arcade.shahmir.ca';
+                        window.location.href = 'https://www.suna.so/?ref=arcade.shahmir.ca';
                     }, 1500); // 1.5 seconds delay
                 }
                 break;
